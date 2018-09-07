@@ -53,6 +53,7 @@ Load the three data sets, after downloading them from dropbox and saving them in
 demo<-read.csv("demo_train.csv")
 lu<-read.csv("LU_train.csv")
 token<-read.csv("token_train.csv")
+library(tidyverse)
 ```
 
 Explore the 3 datasets (e.g. visualize them, summarize them, etc.). You will see that the data is messy, since the psychologists collected the demographic data, a linguist analyzed the length of utterance in May 2014 and the same linguist analyzed the words several months later. In particular:
