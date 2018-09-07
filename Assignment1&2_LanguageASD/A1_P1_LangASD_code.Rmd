@@ -47,6 +47,8 @@ heyhey
 jes
 hej med dig signe
 
+hej hej hej simon
+
 =======
 setwd("~/Uni/R-stuff/Assignment1&2_LanguageASD")
 demo<-read.csv("demo_train.csv")
