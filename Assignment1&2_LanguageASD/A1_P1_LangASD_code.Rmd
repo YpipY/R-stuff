@@ -41,9 +41,7 @@ If you're not in a project in Rstudio, make sure to set your working directory h
 If you created an rstudio project, then your working directory (the directory with your data and code for these assignments) is the project directory. You can always see which working directory is used with `getwd()`. Note that this may be different in the console than in the Rmd cells (don't ask me why).
 
 ```{r}
-demo<-read.csv("demo_train.csv")
-lu<-read.csv("LU_train.csv")
-token<-read.csv("token_train.csv")
+
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
@@ -52,7 +50,9 @@ Load the three data sets, after downloading them from dropbox and saving them in
 * Word data: https://www.dropbox.com/s/8ng1civpl2aux58/token_train.csv?dl=0
 
 ```{r}
-
+demo<-read.csv("demo_train.csv")
+lu<-read.csv("LU_train.csv")
+token<-read.csv("token_train.csv")
 ```
 
 Explore the 3 datasets (e.g. visualize them, summarize them, etc.). You will see that the data is messy, since the psychologists collected the demographic data, a linguist analyzed the length of utterance in May 2014 and the same linguist analyzed the words several months later. In particular:
