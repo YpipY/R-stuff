@@ -41,18 +41,9 @@ If you're not in a project in Rstudio, make sure to set your working directory h
 If you created an rstudio project, then your working directory (the directory with your data and code for these assignments) is the project directory. You can always see which working directory is used with `getwd()`. Note that this may be different in the console than in the Rmd cells (don't ask me why).
 
 ```{r}
-<<<<<<< HEAD
-test
-heyhey
-jes
-hej med dig signe
 
-hej hej hej simon
-
-=======
 setwd("~/Uni/R-stuff/Assignment1&2_LanguageASD")
-demo<-read.csv("demo_train.csv")
->>>>>>> 90d52ed9252cabc2232be2f44a2aee05a17c994c
+trainDemo<-read.csv("demo_train.csv")
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
