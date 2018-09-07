@@ -41,10 +41,7 @@ If you're not in a project in Rstudio, make sure to set your working directory h
 If you created an rstudio project, then your working directory (the directory with your data and code for these assignments) is the project directory. You can always see which working directory is used with `getwd()`. Note that this may be different in the console than in the Rmd cells (don't ask me why).
 
 ```{r}
-test
-heyhey
-jes
-hej med dig f
+
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
