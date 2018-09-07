@@ -44,7 +44,8 @@ If you created an rstudio project, then your working directory (the directory wi
 test
 heyhey
 jes
-hej med dig f
+hej med dig 
+
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
