@@ -41,7 +41,7 @@ If you're not in a project in Rstudio, make sure to set your working directory h
 If you created an rstudio project, then your working directory (the directory with your data and code for these assignments) is the project directory. You can always see which working directory is used with `getwd()`. Note that this may be different in the console than in the Rmd cells (don't ask me why).
 
 ```{r}
-
+setwd("C:/Users/slmoni/Documents/Uni/R-stuff/Assignment1&2_LanguageASD")
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
@@ -50,10 +50,12 @@ Load the three data sets, after downloading them from dropbox and saving them in
 * Word data: https://www.dropbox.com/s/8ng1civpl2aux58/token_train.csv?dl=0
 
 ```{r}
-demo<-read.csv("demo_train.csv")
-lu<-read.csv("LU_train.csv")
-token<-read.csv("token_train.csv")
-library(tidyverse)
+demo<-read.csv("demo_train.csv",stringsAsFactors = F)
+lu<-read.csv("LU_train.csv",stringsAsFactors = F)
+token<-read.csv("token_train.csv",stringsAsFactors = F)
+library(dplyr)
+library(plyr)
+library(stringr)
 ```
 
 Explore the 3 datasets (e.g. visualize them, summarize them, etc.). You will see that the data is messy, since the psychologists collected the demographic data, a linguist analyzed the length of utterance in May 2014 and the same linguist analyzed the words several months later. In particular:
@@ -72,14 +74,16 @@ Tip: Or look through the chapter on data transformation in R for data science (h
 
 
 ```{r}
-
+colnames(demo)[1] <- "SUBJ"
+colnames(demo)[2] <- "VISIT"
 ```
 
 2b. Find a way to homogeneize the way "visit" is reported. If you look into the original data sets, you will see that in the LU data and the Token data, Visits are called "visit 1"" instead of just "1"" (which is the case in the demographic data set).
 Tip: There is a package called stringr, which will be very handy for manipulating (text) strings also in furture assignments. We will return to this package later, but for now use the str_extract () to extract only the number from the variable Visit in each data set.
 
 ```{r}
-
+lu$VISIT<-str_extract (lu$VISIT,"[0-9]+")
+token$VISIT<-str_extract (token$VISIT,"[0-9]+")
 ```
 
 2c. We also need to make a small adjustment to the content of the Child.ID coloumn in the demographic data. Within this column, names that are not abbreviations do not end with "." (i.e. Adam), which is the case in the other two data sets (i.e. Adam.). If The content of the two variables isn't identical the data sets will not be merged sufficiently.
@@ -92,7 +96,17 @@ Tip: You will have to do identical work for both data sets, so to save time on t
 
 
 ```{r}
+for (row in 1:nrow(lu)) {
+  dot <- str_count(lu[row,"SUBJ"], '[.]')
+  if (dot == 1) {
+  lu[row,"SUBJ"]<-str_replace(lu[row,"SUBJ"],"([.])", "")}
+}
 
+for (row in 1:nrow(token)) {
+  dot <- str_count(token[row,"SUBJ"], '[.]')
+  if (dot == 1) {
+  token[row,"SUBJ"]<-str_replace(token[row,"SUBJ"],"([.])", "")}
+}
 ```
 
 2d. Now that the nitty gritty details of the different data sets are fixed, we want to make a subset of each data set only containig the variables that we wish to use in the final data set.
@@ -110,7 +124,9 @@ The variables we need are: Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, A
 It would be smart to rename the last two into something you can remember (i.e. nonVerbalIQ, verbalIQ)
 
 ```{r}
-
+demoNew<-select(demo, SUBJ, VISIT, Ethnicity, Diagnosis, Gender, Age, ADOS,  MullenRaw, ExpressiveLangRaw)
+luNew<-select(lu,SUBJ, VISIT, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd)
+tokenNew<-select(token,SUBJ, VISIT, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
 ```
 
 2e. Finally we are ready to merge all the data sets into just one. 
@@ -118,7 +134,8 @@ Tip: Look up "joins" in R for data science, or google "How to merge datasets in 
 Tip: Joining / merging only works for two data frames at the time.
 
 ```{r}
-
+ADSHalf<-join(demoNew,luNew,by = c("SUBJ", "VISIT"))
+ADS<-join(ADSHalf,tokenNew,by = c("SUBJ", "VISIT"))
 ```
 
 Are we done?
@@ -135,7 +152,20 @@ So let's make sure that we select only these variables as collected during the f
 
 
 ```{r}
+ADS1<-subset(ADS, VISIT == 1)
+ADS2<-filter(ADS, VISIT == 1)
+?subset
+colnames(ADS1)[7] <- "ADOS1"
+ADSGOOD<-join(ADS,ADS1,by = c("SUBJ", "VISIT"))
 
+ADSHalf<-merge(ADS, ADS1, by.x="ADOS", by.y="ADOS1")
+?merge
+
+for (row in 1:nrow(ADS)) {
+  if (ADS[row,"VISIT"] == 1) {
+  rep <-ADS[row,"ADOS"]}
+  ADS[row,"ADOS"]<-rep
+}
 
 ```
 
