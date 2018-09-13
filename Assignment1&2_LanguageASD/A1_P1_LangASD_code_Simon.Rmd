@@ -205,8 +205,29 @@ List all kids who:
 3. have not completed all trials. Tip: Use pipes `%>%` to solve this
 
 ```{r}
+library(tidyverse)
+library(magrittr)
+#1
+group_by(ADSFinal,SUBJ) %>% 
+  dplyr::summarize(Mean = mean(CHI_MLU, na.rm=TRUE))%T>% 
+  assign("mean1",.,envir = .GlobalEnv)
 
+filter(mean1, Mean >= 2.7)
 
+#2
+filter(ADSFinal, CHI_MLU <= 1.5 & VISIT==1)
+
+#3
+group_by(ADSFinal,SUBJ) %>% 
+  filter(is.na(CHI_MLU))%T>% 
+  assign("isna",.,envir = .GlobalEnv)
+
+isna
+
+filter(ADSFinal, is.na(CHI_MLU))
+?summarize
+?mean
+?filter
 ```
 
 
