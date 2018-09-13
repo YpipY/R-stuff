@@ -136,6 +136,8 @@ Tip: Joining / merging only works for two data frames at the time.
 ```{r}
 ADSHalf<-join(demoNew,luNew,by = c("SUBJ", "VISIT"))
 ADS<-join(ADSHalf,tokenNew,by = c("SUBJ", "VISIT"))
+colnames(ADS)[which(names(ADS) == "MullenRaw")] <- "nonVerbalIQ"
+colnames(ADS)[which(names(ADS) == "ExpressiveLangRaw")] <- "verbalIQ"
 ```
 
 Are we done?
@@ -153,20 +155,16 @@ So let's make sure that we select only these variables as collected during the f
 
 ```{r}
 ADS1<-subset(ADS, VISIT == 1)
+#Why should select be used?
 ADS2<-filter(ADS, VISIT == 1)
-?subset
-colnames(ADS1)[7] <- "ADOS1"
-ADSGOOD<-join(ADS,ADS1,by = c("SUBJ", "VISIT"))
+?select
+colnames(ADS1)[which(names(ADS1) == "ADOS")] <- "ADOS1"
+colnames(ADS1)[which(names(ADS1) == "nonVerbalIQ")] <- "nonVerbalIQ1"
+colnames(ADS1)[which(names(ADS1) == "verbalIQ")] <- "verbalIQ1"
+ADSGOOD<-merge(ADS, ADS1, by.x="SUBJ", by.y="SUBJ")
 
-ADSHalf<-merge(ADS, ADS1, by.x="ADOS", by.y="ADOS1")
-?merge
-
-for (row in 1:nrow(ADS)) {
-  if (ADS[row,"VISIT"] == 1) {
-  rep <-ADS[row,"ADOS"]}
-  ADS[row,"ADOS"]<-rep
-}
-
+ADSFinal<-select(ADSGOOD, SUBJ, VISIT.x, Diagnosis.x, Gender.x, Age.x, Ethnicity.x, ADOS1, nonVerbalIQ1, verbalIQ1, MOT_MLU.x, MOT_LUstd.x, CHI_MLU.x, CHI_LUstd.x, types_MOT.x, types_CHI.x, tokens_MOT.x, tokens_CHI.x)
+names(ADSFinal) <- c("SUBJ","VISIT","Diagnosis", "Gender", "Age", "Ethnicity", "ADOS", "nonVerbalIQ", "verbalIQ", "MOT_MLU", "MOT_LUstd", "CHI_MLU", "CHI_LUstd", "types_MOT", "types_CHI", "tokens_MOT", "tokens_CHI")
 ```
 
 Now, we are almost ready to start analysing the data. However, here are some additional finishing touches:
@@ -179,14 +177,19 @@ Tip: google "R how to convert character to integer" or look up the as.??? functi
 * In order to make it easier to work with this nice, clean dataset in the future, it is practical to make sure the variables have sensible values. E.g. right now gender is marked 1 and 2, but in two weeks you will not be able to remember, which gender were connected to which number, so change the values from 1 and 2 to F and M in the gender variable. For the same reason, you should also change the values of Diagnosis from A and B to ASD (autism spectrum disorder) and TD (typically developing). Tip: Try taking a look at ifelse(), or google "how to rename levels in R".
 
 ```{r}
-
+ADSFinal$SUBJ<-as.factor(ADSFinal$SUBJ)
+ADSFinal$SUBJ<-as.integer(ADSFinal$SUBJ)
+ADSFinal$Gender<-as.factor(ADSFinal$Gender)
+ADSFinal$Diagnosis<-as.factor(ADSFinal$Diagnosis)
+levels(ADSFinal$Gender) <- c("F", "M")
+levels(ADSFinal$Diagnosis) <- c("ASD", "TD")
 ```
 
 
 Write the data set into a csv file. 
 
 ```{r}
-
+write.csv(ADSFinal, file = "ADSFinal_Simon.csv")
 ```
 
 
