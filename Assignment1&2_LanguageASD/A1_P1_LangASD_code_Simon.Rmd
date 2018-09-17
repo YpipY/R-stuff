@@ -56,6 +56,8 @@ token<-read.csv("token_train.csv",stringsAsFactors = F)
 library(dplyr)
 library(plyr)
 library(stringr)
+library(tidyverse)
+library(magrittr)
 ```
 
 Explore the 3 datasets (e.g. visualize them, summarize them, etc.). You will see that the data is messy, since the psychologists collected the demographic data, a linguist analyzed the length of utterance in May 2014 and the same linguist analyzed the words several months later. In particular:
@@ -205,8 +207,6 @@ List all kids who:
 3. have not completed all trials. Tip: Use pipes `%>%` to solve this
 
 ```{r}
-library(tidyverse)
-library(magrittr)
 #1
 group_by(ADSFinal,SUBJ) %>% 
   dplyr::summarize(Mean = mean(CHI_MLU, na.rm=TRUE))%T>% 
@@ -221,13 +221,7 @@ filter(ADSFinal, CHI_MLU <= 1.5 & VISIT==1)
 group_by(ADSFinal,SUBJ) %>% 
   filter(is.na(CHI_MLU))%T>% 
   assign("isna",.,envir = .GlobalEnv)
-
-isna
-
-filter(ADSFinal, is.na(CHI_MLU))
-?summarize
-?mean
-?filter
+unique(isna$SUBJ)
 ```
 
 
@@ -237,8 +231,19 @@ USING ARRANGE
 2. Sort kids to find the kid who produced the least amount of words on the 1st visit.
 
 ```{r}
+#1
+filter(ADSFinal,VISIT==6)%>% 
+  arrange(tokens_CHI)%T>% 
+  assign("arrange1",.,envir = .GlobalEnv)
 
+arrange1[which.max(arrange1$tokens_CHI),]
 
+#2
+filter(ADSFinal,VISIT==1)%>% 
+  arrange(tokens_CHI)%T>% 
+  assign("arrange2",.,envir = .GlobalEnv)
+
+arrange2[which.min(arrange2$tokens_CHI),]
 ```
 
 USING SELECT
@@ -247,7 +252,13 @@ USING SELECT
 2. What happens if you include the name of a variable multiple times in a select() call?
 
 ```{r}
-
+#1
+ADSFinalASD<-select(ADSFinal, Diagnosis, MOT_MLU, CHI_MLU, tokens_MOT, tokens_CHI)
+ADSFinalASD<-filter(ADSFinalASD, Diagnosis == "ASD")
+#2
+ADSFinalTest<-select(ADSFinal, Diagnosis, Diagnosis)
+ADSFinalASD<-select(ADSFinal, Diagnosis)
+#Nothing happens
 ```
 
 
@@ -257,6 +268,18 @@ USING MUTATE, SUMMARISE and PIPES
 3. The solution to task above enables us to assess the average amount of words produced by each child. Why don't we just use these average values to describe the language production of the children? What is the advantage of keeping all the data?
 
 ```{r}
+#1
+ADSFinalMutate<-mutate(ADSFinal, MeanTokenAll = mean(ADSFinal$tokens_CHI, na.rm=TRUE))
+ADSFinalMutate
 
+#2
+group_by(ADSFinal,SUBJ) %>% 
+  dplyr::summarize(Mean = mean(tokens_CHI, na.rm=TRUE))%T>% 
+  assign("meanToken",.,envir = .GlobalEnv)
 
+ADSMean<-merge(ADSFinal, meanToken, by.x="SUBJ", by.y="SUBJ")
+#Not sure I understood this correctly, I can only see it as mean per child, don't know what would be consider a single trial in this experiment
+
+#3
+# Because we are interested in the development of there language over time
 ```
