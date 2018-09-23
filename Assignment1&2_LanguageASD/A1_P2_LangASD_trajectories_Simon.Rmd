@@ -1,7 +1,7 @@
 ---
 title: "Assignment 1 - Language Development in ASD - part 2"
 author: "Simon M. N."
-date: "17/9 2018"
+date: "23/9 2018"
 output: html_document
 ---
     
@@ -33,7 +33,11 @@ Load necessary libraries : what will you need?
 - e.g. mixed effects models
 
 ```{r Load Libraries, include = FALSE}
-
+library(ggplot2)
+library(lme4)
+library(tidyverse)
+library(dplyr)
+library(MuMIn)
 ```
 
 ### Define your working directory and load the data
@@ -47,12 +51,8 @@ If you opened this Rmd file outside of a project, you will need some code to fin
 
 If your're in a project, just put the data in the project folder and you're good to go! (Or make a data subfolder to keep it tidy around here)
 ```{r Load Data, include = FALSE}
-
-#getwd()
-#locpath=
-#setwd(locpath)
-#Data =
-
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment1&2_LanguageASD")
+data<-read.csv("ADSFinal_Simon.csv",stringsAsFactors = F)
 ```
 
 ### Characterize the participants (Exercise 1)
@@ -64,10 +64,37 @@ Make sure the variables are in the right format.
 Describe the characteristics of the two groups of participants and whether the two groups are well matched.
 
 ```{r descriptive stats, include = FALSE}
+data<-data[complete.cases(data[ , 14]),]
 
+visit1<- filter(data, VISIT==1)
+visit1ASD<- filter(data, VISIT==1 & Diagnosis=='ASD')
+visit1TD<- filter(data, VISIT==1 & Diagnosis=='TD')
+
+#Diagnosis
+table(visit1$Diagnosis)
+#Gender
+table(visit1ASD$Gender)
+table(visit1TD$Gender)
+#Age
+t.test(visit1$Age ~ visit1$Diagnosis)
+sd(visit1ASD$Age)
+sd(visit1TD$Age)
+#Ethnicity
+table(visit1ASD$Ethnicity)
+table(visit1TD$Ethnicity)
+
+#nonverbalIQ
+t.test(visit1$nonVerbalIQ ~ visit1$Diagnosis)
+#verbalIQ
+t.test(visit1$verbalIQ ~ visit1$Diagnosis)
 ```
 
 [REPORT THE RESULTS]
+I first removed the NAs form the list to get a more accurate assessment of the two groups, since some of the children in the dataset only have NAs and therefor have no impact on the analyses. I look only at the children at visit 1 since we are interested in diffrences at the beginning of the experiment and we expect diffrences to occur later in the experiment
+First looking at the size of the two groups. Number of children with ASD was 29 and number of children with TD is 31. That is simmilar size groups and we should not run into any issues.
+Looking at gender within the ASD group there was 25 females and 4 males and in the TD group there was 25 females and 6 males. Again very similar and it should not cause any issues. One thing to note is that this is not an accurate representation for the real world population, so gernalasation to the real world will be weaker, considering males and females may learn language in diffrenret ways and be effect by ASD in diffrent ways.
+A Welch two-sample t-test is run on the average age of the two groups. It was found that there was a significant diffrence between the average age of ASD (M=33, SD=5.59) and the average age of TD (M=20.38, SD=1.51), t(31.82)=11.76 p < 0.001. This may cause some issues since children may learn language at different rates depending on there age. This diffrence is likely due to the difficulty of diagnosing ASD in young children.
+
 
 ## Let's test hypothesis 1: Children with ASD display a language impairment  (Exercise 2)
 
@@ -80,13 +107,18 @@ Remember to plot the data first and then to run a statistical test.
 - Which variable(s) should be included as random factors?
 
 ```{r ex2, include = FALSE}
-
+boxplot(CHI_MLU ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
+languageModel = lmer(CHI_MLU ~ Diagnosis + VISIT + (1+VISIT|SUBJ), data=data,REML=FALSE)
+summary(languageModel)
 ```
 
 How would you evaluate whether the model is a good model?
 
 ```{r ex2 evaluate, include = FALSE}
-
+r.squaredGLMM(languageModel)
+languageModel = lmer(CHI_MLU ~ Diagnosis + VISIT + (1+VISIT|SUBJ), data=data, REML=FALSE)
+languageNull = lmer(CHI_MLU ~ VISIT + (1+VISIT|SUBJ), data=data, REML=FALSE)
+anova(languageNull,languageModel)
 ```
 
 Not too good, right? Let's check whether a growth curve model is better.
@@ -94,7 +126,11 @@ Remember: a growth curve model assesses whether changes in time can be described
 First build the different models, then compare them to see which one is better
 
 ```{r ex2 growth curve, include = FALSE}
-
+languageModel2 = lmer(CHI_MLU ~ Diagnosis + 1 + VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
+summary(languageModel2)
+r.squaredGLMM(languageModel2)
+languageNull2 = lmer(CHI_MLU ~ 1 + VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
+anova(languageNull2,languageModel2)
 ```
 
 Exciting right?
@@ -112,7 +148,12 @@ Linguistic development of children MLU is affected by ...
 ### Hypothesis: Parental MLU changes: i) over time, ii) according to diagnosis
 
 ```{r ex3, include = FALSE}
-
+boxplot(MOT_MLU ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
+languageModelMot = lmer(MOT_MLU ~ Diagnosis + 1 + VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
+summary(languageModelMot)
+r.squaredGLMM(languageModelMot)
+languageNullMot = lmer(MOT_MLU ~ 1 + VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
+anova(languageNullMot,languageModelMot)
 ```
 
 [REPORT THE RESULTS]
