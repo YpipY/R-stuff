@@ -108,6 +108,14 @@ Remember to plot the data first and then to run a statistical test.
 
 ```{r ex2, include = FALSE}
 boxplot(CHI_MLU ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
+
+line_plot <- ggplot(data, aes(VISIT,CHI_MLU, color = Diagnosis)) 
+line_plot + 
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.y = mean, geom = "line",aes(group = Diagnosis)) + 
+  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.2, aes(group = Diagnosis)) + 
+  scale_color_manual(values=c("goldenrod1","dodgerblue"))
+
 languageModel = lmer(CHI_MLU ~ Diagnosis * VISIT + (1+VISIT|SUBJ), data=data,REML=FALSE)
 summary(languageModel)
 ```
@@ -149,6 +157,15 @@ Linguistic development of children MLU is affected by ...
 
 ```{r ex3, include = FALSE}
 boxplot(MOT_MLU ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
+
+line_plot <- ggplot(data, aes(VISIT,MOT_MLU, color = Diagnosis)) 
+
+line_plot + 
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.y = mean, geom = "line",aes(group = Diagnosis)) + 
+  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.2, aes(group = Diagnosis)) + 
+  scale_color_manual(values=c("goldenrod1","dodgerblue"))
+
 languageModelMot = lmer(MOT_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
 summary(languageModelMot)
 r.squaredGLMM(languageModelMot)
@@ -164,9 +181,11 @@ Your task now is to figure out how to best describe the children linguistic traj
 
 
 ```{r ex4, include = FALSE}
-boxplot(CHI_MLU ~ ADOS,data)
-languageModelTest = lmer(CHI_MLU ~ ADOS * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
+boxplot(types_MOT ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
+languageModelTest = lmer(types_MOT ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
 summary(languageModelTest)
+languageModelTestNull = lmer(types_MOT ~ VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
+anova(languageModelTestNull,languageModelTest)
 ```
 
 [REPORT THE RESULTS]
