@@ -1,7 +1,7 @@
 ---
 title: "Assignment 1 - Language Development in ASD - part 2"
 author: "Simon M. N."
-date: "23/9 2018"
+date: "25/9 2018"
 output: html_document
 ---
     
@@ -33,7 +33,7 @@ Load necessary libraries : what will you need?
 - e.g. mixed effects models
 
 ```{r Load Libraries, include = FALSE}
-#Loading libararies
+#Loading packages
 library(ggplot2)
 library(lme4)
 library(tidyverse)
@@ -151,6 +151,11 @@ r.squaredGLMM(languageModel)
 # Then with an anova
 languageNull = lmer(CHI_MLU ~ VISIT + (1+VISIT|SUBJ), data=data, REML=FALSE)
 anova(languageNull,languageModel)
+
+#Assumptions testing
+plot(residuals(languageModel))
+qqnorm(residuals(languageModel))
+plot(fitted(languageModel),residuals(languageModel))^2
 ```
 
 Not too good, right? Let's check whether a growth curve model is better.
@@ -187,7 +192,20 @@ ggplot(as.data.frame(ee),
      ## colour=NA suppresses edges of the ribbon
     geom_ribbon(colour=NA,alpha=0.1,
                             aes(ymin=lower,ymax=upper))+
-  labs(title = "Diagnosis as predictor of child MLU development", x = "Visit", y = "MLU") 
+  labs(title = "Diagnosis as predictor of child MLU development", x = "Visit", y = "MLU")
+
+#Assumptions testing
+plot(residuals(languageModel2))
+qqnorm(residuals(languageModel2))
+plot(fitted(languageModel2),residuals(languageModel2))^2
+
+plot(residuals(model_cubic))
+qqnorm(residuals(model_cubic))
+plot(fitted(model_cubic),residuals(model_cubic))^2
+
+plot(residuals(model_quadrouble))
+qqnorm(residuals(model_quadrouble))
+plot(fitted(model_quadrouble),residuals(model_quadrouble))^2
 ```
 
 Exciting right?
@@ -196,9 +214,16 @@ Remember to report:
 - the estimates for each predictor (beta estimate, standard error, p-value)
 - A plain word description of the results
 - A plot of your best model's predictions
+Linguistic development of children MLU is affected by ... 
 
 [REPORT THE RESULTS]
-Linguistic development of children MLU is affected by ... 
+A quadratic mixed effects analysis was preformed on the linguistic development of children MLU, to find ASD and TD impact on development MLU in children. With the fixed effctes being an interaction effct between diagnosis and number of visits, and visits being quadratic. Random effects was intercepts and slopes by subjects for child MLU. 
+Assumptions of homoscedasticity and normality was tested and no violation was found.
+The P-value obtained by likelihood ratio test.
+The model showed that diagnosis significantly predict child MLU development, when going form ASD to TD (bata=0.25, SE=0.04, t(12)=6.73, p < 0.001).
+This shows that, according to our model, a child with TD MLU increase by 0.25 more for each visit then a child with ASD.
+This can also be seen in the figure for "Diagnosis as predictor of child MLU development". Children with ASD MLU increases much more slowly. Looking at the lineplot of the data the models also nicely seem to follow the data.
+What also be seen form the plot of the model, is that MLU is starting to decrease for ADS children. This shows the weakness of the quadratic model, since it is fair to assume that childrens MLU does not at the very least decrease after a few years. So while the quadratic model may predict the MLU development for this periode in childhood, it does not pridict MLU development for children later in development.
 
 ## Let's test hypothesis 2: Parents speak equally to children with ASD and TD  (Exercise 3)
 
@@ -234,10 +259,22 @@ ggplot(as.data.frame(ee),
      ## colour=NA suppresses edges of the ribbon
     geom_ribbon(colour=NA,alpha=0.1,
                             aes(ymin=lower,ymax=upper))+
-  labs(title = "Diagnosis as predictor of Mother MLU development", x = "Visit", y = "MLU") 
+  labs(title = "Diagnosis as predictor of mother MLU increase", x = "Visit", y = "MLU") 
+
+#Assumptions testing
+plot(residuals(languageModelMot))
+qqnorm(residuals(languageModelMot))
+plot(fitted(languageModelMot),residuals(languageModelMot))^2
 ```
 
 [REPORT THE RESULTS]
+A quadratic mixed effects analysis was preformed on the increase in mother MLU, to find ASD and TD impact on incease of MLU for mothers. With the fixed effctes being an interaction effct between diagnosis and number of visits, and visits being quadratic. Random effects was intercepts and slopes by subjects for mother MLU. 
+Assumptions of homoscedasticity and normality was tested and no violation was found.
+The P-value obtained by likelihood ratio test.
+The model showed that diagnosis significantly predict mother MLU increase, when going form ASD to TD (bata=0.03, SE=0.035, t(12)=0.857, p < 0.001).
+It is worth noting tha the effect was alot smaller then on the childrens MLU.
+This shows that, according to our model, for a mother with TD child MLU increase by 0.03 more for each visit then a mother with a ASD child.
+Looking at the figure "Diagnosis as predictor of Mother MLU increase" it is clear the there is very little difference between increase in mother MLU for ASD and TD. Though it is clear that mothers start at different MLU. This can also be seen in the lineplot of the data.
 
 ### Adding new variables (Exercise 4)
 
@@ -246,8 +283,8 @@ Your task now is to figure out how to best describe the children linguistic traj
 
 ```{r ex4, include = FALSE}
 #You know the deal by now :|
-boxplot(types_MOT ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
-languageModelTest = lmer(CHI_LUstd ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
+boxplot(types_CHI ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
+languageModelTest = lmer(types_CHI ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
 summary(languageModelTest)
 r.squaredGLMM(languageModelTest)
 languageModelTestNull = lmer(types_MOT ~ VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
@@ -255,4 +292,4 @@ anova(languageModelTestNull,languageModelTest)
 ```
 
 [REPORT THE RESULTS]
-
+I p-hac... I mean explored the data to try to find a better prediction. I tried to use with token and type as outcome variables and tried to use ADOS, verbal IQ and non-verbal IQ as a preditor variable, however, I was unable to find a predictor that explain the data better then diagnosis for child MLU. 
