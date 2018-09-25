@@ -1,6 +1,6 @@
 ---
 title: "Assignment 1 - Language Development in ASD - part 2"
-author: "Simon M. N."
+author: "Studiegroup"
 date: "25/9 2018"
 output: html_document
 ---
