@@ -10,8 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 # Loading packages
 library(lmerTest)
 library(Metrics)
-install.packages('merTools')
-library(merTools)
+install.packages('caret')
+library(caret)
+library(tidyverse)
 ```
 
 ## Welcome to the third exciting part of the Language Development in ASD exercise
@@ -33,8 +34,8 @@ setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment
 train<-read.csv("train.csv",stringsAsFactors = F)
 test<-read.csv("test.csv",stringsAsFactors = F)
 # Removing NAs
-train<-train[complete.cases(train[ , 12]),]
-test<-test[complete.cases(test[ , 12]),]
+train<-train[complete.cases(train[ , 14]),]
+test<-test[complete.cases(test[ , 14]),]
 ```
 
 
@@ -45,7 +46,7 @@ How did your models from last time perform? In this exercise you have to compare
 - recreate the models you chose last time (just write the model code again and apply it to your training data (from the first assignment))
 ```{r,include = FALSE}}
 # Making the same model
-languageModel2 = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), train=data, REML=FALSE)
+languageModel2 = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
 summary(languageModel2)
 ```
 
@@ -80,6 +81,60 @@ In this exercise you have to use cross-validation to calculate the predictive er
 
 - Use cross-validation to compare your model from last week with the basic model (Child MLU as a function of Time and Diagnosis, and don't forget the random effects!)
 - (Tips): google the function "createFolds";  loop through each fold, train both models on the other folds and test them on the fold)
+```{r,include = FALSE}}
+languageModel = lmer(CHI_MLU ~ Diagnosis * VISIT + (1+VISIT|SUBJ), data=train,REML=FALSE)
+summary(languageGood)
+# Making predictions for the test data
+Folds<-createFolds(unique(train$SUBJ), k=5, list=T)
+
+# quad model
+trainError=NULL
+testError=NULL
+realTestError=NULL
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(train, !SUBJ %in% i)
+  testFold = filter(train, SUBJ %in% i)
+  languageModel2 = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=trainFold, REML=FALSE)
+  pTrain <- predict(languageModel2,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$CHI_MLU)
+  pTest <- predict(languageModel2,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$CHI_MLU)
+  pTest <- predict(languageModel2,test,allow.new.levels = T)
+  realTestError[n] <-rmse(pTest,test$CHI_MLU)
+  assign(paste("languageModel2_", n, sep = ""), languageModel2)
+}
+mean(trainError)
+mean(testError)
+mean(realTestError)
+summary(languageModel2_2)
+
+# linear model
+trainError=NULL
+testError=NULL
+realTestError=NULL
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(train, !SUBJ %in% i)
+  testFold = filter(train, SUBJ %in% i)
+  languageModel = lmer(CHI_MLU ~ Diagnosis * VISIT + (1+VISIT|SUBJ), data=trainFold,REML=FALSE)
+  pTrain <- predict(languageModel,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$CHI_MLU)
+  pTest <- predict(languageModel,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$CHI_MLU)
+  pTest <- predict(languageModel,test,allow.new.levels = T)
+  realTestError[n] <-rmse(pTest,test$CHI_MLU)
+  assign(paste("languageModel_", n, sep = ""), languageModel)
+}
+mean(trainError)
+mean(testError)
+mean(realTestError)
+summary(languageModel_2)
+```
 
 Which model is better at predicting new data: the one you selected last week or the one chosen via cross-validation this week?
 
@@ -99,7 +154,10 @@ Which model is better at predicting new data: the one you selected last week or 
 Let's get to business. This new kiddo - Bernie - has entered your clinic. This child has to be assessed according to his group's average and his expected development.
 
 Bernie is one of the six kids in the test dataset, so make sure to extract that child alone for the following analysis.
-
+```{r,include = FALSE}}
+# Getting only Bernie, he is subject 2
+Bernie <- filter(test,SUBJ==2)
+```
 You want to evaluate:
 
 - how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
