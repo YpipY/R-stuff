@@ -7,6 +7,11 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+# Loading packages
+library(lmerTest)
+library(Metrics)
+install.packages('merTools')
+library(merTools)
 ```
 
 ## Welcome to the third exciting part of the Language Development in ASD exercise
@@ -21,14 +26,46 @@ N.B. There are several datasets for this exercise, so pay attention to which one
 * Utterance Length data: https://www.dropbox.com/s/uxtqqzl18nwxowq/LU_test.csv?dl=1
 * Word data: https://www.dropbox.com/s/1ces4hv8kh0stov/token_test.csv?dl=1
 
+```{r,include = FALSE}}
+# Setting WD
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment1&2_LanguageASD/part3")
+# Loading data
+train<-read.csv("train.csv",stringsAsFactors = F)
+test<-read.csv("test.csv",stringsAsFactors = F)
+# Removing NAs
+train<-train[complete.cases(train[ , 12]),]
+test<-test[complete.cases(test[ , 12]),]
+```
+
+
 ### Exercise 1) Testing model performance
 
 How did your models from last time perform? In this exercise you have to compare the results on the training data () and on the test data. Report both of them. Compare them. Discuss why they are different.
 
 - recreate the models you chose last time (just write the model code again and apply it to your training data (from the first assignment))
+```{r,include = FALSE}}
+# Making the same model
+languageModel2 = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), train=data, REML=FALSE)
+summary(languageModel2)
+```
+
 - calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
+```{r,include = FALSE}}
+# Making predictions for the training data
+pTrain <- predict(languageModel2,train)
+
+rmse(pTrain,train$CHI_MLU)
+rmse(pTrain,train$CHI_MLU)/sd(train$CHI_MLU)
+```
 - create the test dataset (apply the code from assignment 1 part 1 to clean up the 3 test datasets)
 - test the performance of the models on the test data (Tips: google the functions "predict()")
+```{r,include = FALSE}}
+# Making predictions for the test data
+pTest <- predict(languageModel2,test,allow.new.levels = T)
+
+rmse(pTest,test$CHI_MLU)
+rmse(pTest,test$CHI_MLU)/sd(test$CHI_MLU)
+```
 - optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
 
 formatting tip: If you write code in this document and plan to hand it in, remember to put include=FALSE in the code chunks before handing in.
