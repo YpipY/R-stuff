@@ -1,0 +1,218 @@
+---
+title: "Assignment 1 - Language Development in ASD - part 3"
+author: "Riccardo Fusaroli"
+date: "August 10, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Welcome to the third exciting part of the Language Development in ASD exercise
+
+In this exercise we will delve more in depth with different practices of model comparison and model selection, by first evaluating your models from last time, then learning how to cross-validate models and finally how to systematically compare models.
+
+N.B. There are several datasets for this exercise, so pay attention to which one you are using!
+
+1. The (training) dataset from last time (the awesome one you produced :-) ).
+2. The (test) datasets on which you can test the models from last time:
+* Demographic and clinical data: https://www.dropbox.com/s/ra99bdvm6fzay3g/demo_test.csv?dl=1
+* Utterance Length data: https://www.dropbox.com/s/uxtqqzl18nwxowq/LU_test.csv?dl=1
+* Word data: https://www.dropbox.com/s/1ces4hv8kh0stov/token_test.csv?dl=1
+
+### Exercise 1) Testing model performance
+
+How did your models from last time perform? In this exercise you have to compare the results on the training data () and on the test data. Report both of them. Compare them. Discuss why they are different.
+
+- recreate the models you chose last time (just write the model code again and apply it to your training data (from the first assignment))
+- calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
+- create the test dataset (apply the code from assignment 1 part 1 to clean up the 3 test datasets)
+- test the performance of the models on the test data (Tips: google the functions "predict()")
+- optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
+
+formatting tip: If you write code in this document and plan to hand it in, remember to put include=FALSE in the code chunks before handing in.
+
+```{r}
+setwd("~/Studygroup/Assignment1&2_LanguageASD/part3")
+
+#reading testing and training data
+train <- read.csv("train.csv")
+test <- read.csv("test.csv")
+
+library(tidyverse)
+library(ggplot2)
+library(lme4)
+library(dplyr)
+library(MuMIn)
+library(effects)
+library(Metrics)
+library(caret)
+#RMSE standard error of your predictions: meassure of uncertainty in model
+
+train <- train[complete.cases(train[ , 14]),]
+test <- test[complete.cases(test[ , 14]),]
+
+#unique words are highly correlated with CHI_MLU, therefore the model is overfitted
+```
+
+
+```{r}
+
+#training model
+model_train = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
+train_predictions <- predict(model_train, train, allow.new.levels =TRUE)
+r_train <- rmse(train$CHI_MLU, train_predictions)
+r_train
+
+#test model
+test_predictions <- predict(model_train, test, allow.new.levels =TRUE)
+r_test <- rmse(test$CHI_MLU, train_predictions)
+r_test
+
+#devide by sd in the data to "standardize"
+rmse_train/sd(train$CHI_MLU)
+rmse_test/sd(test$CHI_MLU)
+
+
+#in order to test how well our training model predicts the test data... it is not very good at it
+
+```
+
+
+[HERE GOES YOUR ANSWER]
+
+### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
+
+One way to reduce bad surprises when testing a model on new data is to train the model via cross-validation. 
+
+In this exercise you have to use cross-validation to calculate the predictive error of your models and use this predictive error to select the best possible model.
+
+- Use cross-validation to compare your model from last week with the basic model (Child MLU as a function of Time and Diagnosis, and don't forget the random effects!)
+
+- (Tips): google the function "createFolds";  loop through each fold, train both models on the other folds and test them on the fold)
+
+Which model is better at predicting new data: the one you selected last week or the one chosen via cross-validation this week?
+
+- Test both of them on the test data.
+- Report the results and comment on them.
+
+- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+
+
+```{r}
+#cross validation: the cake! fist split it in 5 parts. assigning the kids to random folds of the cake. createFolds splits the kids into the different folds. loop through each fold
+
+#basic model to compare
+basic_model <- lmer(CHI_MLU ~ VISIT + Diagnosis + (1+VISIT|SUBJ), data=train, REML=FALSE)
+fancy_model = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
+
+#REMEMBER TO RUN THESE TO RESET LOOP
+
+N = 1
+rmse_train_basic = NULL
+rmse_train_fancy = NULL
+rmse_test_fancy = NULL
+rmse_test_basic = NULL
+
+#create folds
+folds <- createFolds(unique(train$SUBJ), k=5, list = TRUE, returnTrain = FALSE)
+
+#loop
+for (f in folds) {
+  #seperate in cake pieces
+  temp_test = filter(train, SUBJ%in% f)
+  temp_train = filter(train, !SUBJ%in% f)
+  
+  #run training data through model
+  loop_model_fancy = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=temp_train, REML=FALSE)
+  loop_model_basic = lmer(CHI_MLU ~ VISIT + Diagnosis + (1+VISIT|SUBJ), data=temp_train, REML=FALSE)
+  
+  #predict test data from the two models
+  pred_basic_train = predict(loop_model_basic, temp_train, allow.new.levels =TRUE)
+  pred_fancy_train = predict(loop_model_fancy, temp_train, allow.new.levels =TRUE)
+  pred_fancy_test = predict(loop_model_fancy, temp_test, allow.new.levels =TRUE)
+  pred_basic_test = predict(loop_model_basic, temp_test, allow.new.levels =TRUE)
+  
+  #get average error for prediction model and concatenate to the empty list
+  rmse_train_basic = c(rmse_train_basic, rmse(temp_train$CHI_MLU, pred_basic_train))
+  rmse_train_fancy = c(rmse_train_fancy, rmse(temp_train$CHI_MLU, pred_fancy_train))
+  rmse_test_fancy = c(rmse_test_fancy, rmse(temp_test$CHI_MLU, pred_fancy_test))
+  rmse_test_basic = c(rmse_test_basic, rmse(temp_test$CHI_MLU, pred_basic_test))
+  
+  }
+
+
+#compare these tow numbers, as they indicate how well the model is trained to predict the test data
+mean(rmse_test_basic)
+mean(rmse_test_fancy)
+
+
+```
+
+```{r}
+
+#run test data
+
+#fancy model
+fancy_model_train = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
+
+fancy_test_predictions <- predict(fancy_model_train, test, allow.new.levels =TRUE)
+fancy_r_train <- rmse(test$CHI_MLU, fancy_test_predictions)
+fancy_r_train
+
+#basic model
+model_basic = lmer(CHI_MLU ~ VISIT + Diagnosis + (1+VISIT|SUBJ), data = train, REML=FALSE)
+
+basic_test_predictions <- predict(model_basic, test, allow.new.levels =TRUE)
+basic_r_train <- rmse(test$CHI_MLU, basic_test_predictions)
+basic_r_train
+
+```
+
+- Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
+- Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
+
+
+```{r}
+
+
+
+
+```
+
+
+
+[HERE GOES YOUR ANSWER]
+The quadratic model is overfitted 
+
+### Exercise 3) Assessing the single child
+
+Let's get to business. This new kiddo - Bernie - has entered your clinic. This child has to be assessed according to his group's average and his expected development.
+
+Bernie is one of the six kids in the test dataset, so make sure to extract that child alone for the following analysis.
+
+You want to evaluate:
+
+- how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
+(Tip: recreate the equation of the model: Y=Intercept+BetaX1+BetaX2, etc; input the average of the TD group  for each parameter in the model as X1, X2, etc.).
+
+- how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
+
+```{r}
+
+#Bernie's birth. Bernie is subject 2
+bernie <- subset(test, SUBJ == "2", select = c("SUBJ", "Age", "CHI_MLU", "Diagnosis", "VISIT", "ADOS"))
+bernie
+
+
+#predict Bernie's future
+bernie_model_train = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
+
+bernie_test_predictions <- predict(bernie_model_train, bernie, allow.new.levels = TRUE)
+bernie_test_predictions [6:6]
+
+
+```
+
+[HERE GOES YOUR ANSWER]
