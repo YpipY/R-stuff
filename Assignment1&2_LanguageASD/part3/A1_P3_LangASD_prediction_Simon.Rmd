@@ -13,6 +13,7 @@ library(Metrics)
 install.packages('caret')
 library(caret)
 library(tidyverse)
+library(magrittr)
 ```
 
 ## Welcome to the third exciting part of the Language Development in ASD exercise
@@ -161,6 +162,19 @@ Bernie <- filter(test,SUBJ==2)
 You want to evaluate:
 
 - how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
+```{r,include = FALSE}}
+# Getting the averages
+mean(Bernie$CHI_MLU)
+
+group_by(test,Diagnosis) %>% 
+  dplyr::summarize(Mean = mean(CHI_MLU, na.rm=TRUE))%T>% 
+  assign("meanTD",.,envir = .GlobalEnv)
+2.947809-2.326294
+
+# Loading model
+languageModel2 = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
+summary(languageModel2)
+```
 (Tip: recreate the equation of the model: Y=Intercept+BetaX1+BetaX2, etc; input the average of the TD group  for each parameter in the model as X1, X2, etc.).
 
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
