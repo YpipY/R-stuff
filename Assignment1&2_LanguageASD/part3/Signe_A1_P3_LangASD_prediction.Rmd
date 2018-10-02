@@ -49,6 +49,15 @@ N.B. There are several datasets for this exercise, so pay attention to which one
 
 How did your models from last time perform? In this exercise you have to compare the results on the training data () and on the test data. Report both of them. Compare them. Discuss why they are different.
 
+Two two models from last time are the linear and the quadratic model with an interaction effect between diagnosis and visit.
+We most simple model is the linear model wihtout an interaction.  
+
+qua_model = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ)
+
+lin_model = lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT |SUBJ))
+
+lin_model_simple = lmer(CHI_MLU ~ Diagnosis + VISIT  + (1+VISIT |SUBJ))
+
 - recreate the models you chose last time (just write the model code again and apply it to your training data (from the first assignment))
 - calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
 - create the test dataset (apply the code from assignment 1 part 1 to clean up the 3 test datasets)
@@ -57,7 +66,7 @@ How did your models from last time perform? In this exercise you have to compare
 
 formatting tip: If you write code in this document and plan to hand it in, remember to put include=FALSE in the code chunks before handing in.
 
-```{r}
+```{r, include=FALSE}
 
 languageModel_base_train = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train_data, REML=FALSE) #create model on training data 
 
@@ -101,8 +110,11 @@ rmse_test/sd(test_data$CHI_MLU) #actually worse than the mean model --> we have 
 
 ```
 
+We use the root mean square error to calculate the performance of the model.
 
-[HERE GOES YOUR ANSWER]
+The performance of the quadratic model on the training data is 0.29. The performance on the test data is 1.01. The difference indicates that our model is overfitted, as it performs farely well on the training set, but fails to predict the test data. This shows that the model is not generalisable. 
+
+
 
 
 
@@ -136,13 +148,6 @@ Which model is better at predicting new data: the one you selected last week or 
 
 
 
-#create the fancy and the basic model, will just use a difference between linear and a quadratic model
-
-#fancy_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data= , REML=FALSE)
-
-#basice_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT|SUBJ), data= , REML=FALSE)
-
-
 
 folds <- createFolds(unique(train_data$SUBJ), k = 5, list = TRUE) #create folds. Unique() puts each unique kid in a fold, so all data from one subj goes into one fold
 
@@ -152,9 +157,6 @@ folds
 
 
 #now we need to create a loop, important to run through the empty lists before running  
-rmse_train_lin = NULL #create empty list
-
-rmse_test_lin = NULL
 
 
 rmse_train_qua = NULL
@@ -212,31 +214,16 @@ mean(rmse_train_lin)
 mean(rmse_train_qua)
 
 
-#run the two models on the test data
-
-
-
-
 ```
 
-Which model is better at predicting new data: the one you selected last week or the one chosen via cross-validation this week?
-
-- Test both of them on the test data.
-- Report the results and comment on them.
-
-- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
-
-- Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
-- Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
 
 
 
-
-```{r}
+```{r, include = FALSE}
 
 #test the two models on the test data 
 
-#first train the models
+#first train the models on full training data, no folds
 lin_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT|SUBJ), data = train_data, REML=FALSE)
 
 
@@ -266,7 +253,90 @@ rmse_test_qua/sd(test_data$CHI_MLU) #actually worse than the mean model --> we h
 ```
 
 
+From cross-validation with 5-folds on the quadratic and the linear model, we found that the quadratic model performed best (average rmse = 0.72), when predicting CHI-MLU. However the linear model had an average performance at 0.78 and thereby the difference between the to is rather small. The two models are therefore almost equally good.  
 
+One thing to notice is that when we use the models to predict from the training data (inside the fold), both models perform much better, linear rsme = 0.35, quadratic rsme = 0.28. This again is an indicator of the models overfitting. 
+
+
+In order to test both models on the test data, we first train the models on the training data.Thereafter predict the test data, from the trained models. The quadratic model was able to predict the test data with an average error (rmse) of 1.009. The linear model predict the test data with an average error (rmse) of 1.007. 
+
+Both models performs poorly in predicting the test data. After the cross-validation we found that the two models were almost equally good and it therefore makes sense, that their predictive abilities are similar. As mentioned earlier, the models perform well in predicting the training data. Thus, this poor performance on the test data is an indocator of the models being overfitted. One way to overcome this obstacle would be to sample more data to train the models on. 
+
+
+
+- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+
+- Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
+- Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
+
+```{r}
+rmse_test_token <- NULL
+rmse_test_token_verbal <- NULL
+rmse_test_ados <- NULL
+rmse_test_ados_verbal <- NULL
+
+temp_test = NULL
+
+temp_train = NULL
+
+
+
+for (f in folds) {
+  #divide into test and train
+  temp_test = filter(train_data, SUBJ %in% f)
+  temp_train = filter(train_data, ! SUBJ %in% f)
+  
+  #run models on train
+  token_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + tokens_CHI  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
+  token_verbal_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + tokens_CHI + verbalIQ  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
+  ados_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
+  ados_verbal_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS + verbalIQ  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
+  
+
+  #predict from the two models on both train and test data, train data does not really make sense --> just pedagogic 
+  predict_token_model <- predict(token_model, temp_test, allow.new.levels = TRUE)
+  predict_ados_model <- predict(ados_model, temp_test, allow.new.levels = TRUE)
+  predict_ados_verbal_model <- predict(ados_verbal_model, temp_test, allow.new.levels = TRUE)
+  predict_token_verbal_model <- predict(token_verbal_model, temp_test, allow.new.levels = TRUE)
+  
+  
+  
+  #get average error and put into list
+  rmse_test_token <- c(rmse_test_token, rmse(temp_test$CHI_MLU, predict_token_model))
+  rmse_test_token_verbal <- c( rmse_test_token_verbal, rmse(temp_test$CHI_MLU, predict_token_verbal_model))
+  rmse_test_ados <- c(rmse_test_ados, rmse(temp_test$CHI_MLU, predict_ados_model))
+  rmse_test_ados_verbal <- c( rmse_test_ados_verbal, rmse(temp_test$CHI_MLU, predict_ados_verbal_model))
+
+  
+}
+
+
+mean(rmse_test_token) 
+
+mean(rmse_test_token_verbal) 
+
+mean(rmse_test_ados) 
+
+mean(rmse_test_ados_verbal)
+```
+
+The model that produces the best cross-validated results are the one with verbal IQ and tokens-CHI (number of unique words) in addition to diagnosis and visit. The reason for this is the high correlation between tokens_CHI and child MLU as they measure almost the same thing. The model which takes the severety of autism and verbal IQ at the first visit into account is the next best model and it makes more sense to have a model which uses values obtained at the first visit, as we often want to predict what will happen at the following five visits. 
+
+We can try to train the model on the training data and then see how well it predicts the test data. 
+
+```{r}
+ados_verbal_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS + verbalIQ  + (1+VISIT|SUBJ), data= train_data, REML=FALSE)
+
+predictions_ados_verbal <- predict(ados_verbal_model, test_data, allow.new.levels = TRUE)
+
+
+
+rmse_ados_verbal <-rmse(test_data$CHI_MLU, predictions_ados_verbal)
+
+rmse_ados_verbal
+```
+
+Better, but still pretty bad. 
 
 
 
@@ -284,34 +354,37 @@ You want to evaluate:
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
 
 
-Just to take a look at the equation
 
-First less look at the most simple linear model
+```{r, include=FALSE}
+#First less look at the most simple linear model
 
-The equation is: 
+#The equation is: 
 
-CHI_MLU = 1.046 + VISIT * 0.23 + DIagnosis * 0.29
+#CHI_MLU = 1.046 + VISIT * 0.23 + DIagnosis * 0.29
 
-Diagnosis is either 0 or 1
+#Diagnosis is either 0 or 1
 
-ASD = 0
+# ASD = 0
 
-TD = 1
+# TD = 1
 
-```{r}
+
 lin_model_simple <- lmer(CHI_MLU ~ Diagnosis + VISIT  + (1+VISIT|SUBJ), data = train_data, REML=FALSE)
 
 summary(lin_model_simple)
 ```
-Next less look at the next simple linear model --> an interaction model
 
-CHI_MLU = 1.3 + Diagnosis*-0.21 + VISIT*0.1 + Diagnosis*VISIT*0.25
 
-ASD = 0
+```{r, include=FALSE}
+# Next less look at the next simple linear model --> an interaction model
+# 
+# CHI_MLU = 1.3 + Diagnosis*-0.21 + VISIT*0.1 + Diagnosis*VISIT*0.25
+# 
+# ASD = 0
+# 
+# TD = 1
 
-TD = 1
 
-```{r}
 lin_model_interaction <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT|SUBJ), data = train_data, REML=FALSE)
 
 summary(lin_model_interaction)
@@ -325,6 +398,9 @@ visit=1
 
 ```
 
+
+
+
 ```{r}
 qua_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train_data, REML=FALSE)
 
@@ -332,8 +408,21 @@ summary(qua_model)
 
 ```
 
+We want to look at the difference between Bernie and the avearge TD child at the 6 visits. We will use the quadratic model for this. 
+
+First we run the quadratic model and look at the summary. From there we can extract the estimates for the fixed effects to recreate the model. 
+
+Thereby we have the following equation:
+
 CHI_MLU = 0.98 + Diagnosis*-0.36 + VISIT*0.41 + -0.04*VISIT^2 + VISIT*Diagnosis*0.25
-```{r}
+
+Diagnosis is either 0 or 1. ASD = 0 and TD = 1. As the estimate describe the change when we move from ASD to TD (A is first in the alphabet). 
+
+We then set TD = 1, and put in from 1 to 6 in visits. From that we get the average MLU of TD's for each visit. These values are (1.24, 1.78, 2.24, 2.62, 2.92, 3.14). 
+
+After this we subtract Bernies values from the avearge TD values and find the absolute difference. These are: 0.7444560 0.7644444 1.1131915 0.5630986 0.2532523 0.3084127. 
+
+```{r, include = FALSE}
 Diagnosis = 1
 Visit = 1
 
@@ -360,7 +449,7 @@ abs(tk)
 #filter Bernie out, don't know if he is participant 1, have to recreate dataset, where we have not removed the names
 Bernie_data <- subset(test_data, SUBJ == "2", select = c("SUBJ", "CHI_MLU", "Diagnosis", "VISIT"))
 
-summary(lin_model)
+summary(qua_model)
 
 
 
@@ -375,13 +464,18 @@ rmse_qua_bernie <-rmse(Bernie_data$CHI_MLU, predictions_qua_bernie)
 
 rmse_qua_bernie
 
+predictions_qua_bernie [6:6]
+
 predictions_qua_bernie
 
 
+difference =1.880553-3.448413
+difference
+
 ```
 
+The quadratic model would predict Bernie to have an MLU of 1.88 at the sixth visit. However the measured MLU for Bernie was 3.45, thereby we can see that above average from what would be expected of children with autism. The difference between the predicted and the actual value of mean length of utterance is 1.57. If the look at ADOS for Bernie, which we can see that his autism is not very severe. This could explain why he overperforms in MLU compared to what the model would predict, as it does not take into account that autism varies on a spectum.  
 
-[HERE GOES YOUR ANSWER]
 
 ### OPTIONAL: Exercise 4) Model Selection via Information Criteria
 Another way to reduce the bad surprises when testing a model on new data is to pay close attention to the relative information criteria between the models you are comparing. Let's learn how to do that!
