@@ -67,7 +67,7 @@ r_train
 
 #test model
 test_predictions <- predict(model_train, test, allow.new.levels =TRUE)
-r_test <- rmse(test$CHI_MLU, train_predictions)
+r_test <- rmse(test$CHI_MLU, test_predictions)
 r_test
 
 #devide by sd in the data to "standardize"
@@ -125,7 +125,7 @@ for (f in folds) {
   temp_train = filter(train, !SUBJ%in% f)
   
   #run training data through model
-  loop_model_fancy = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=temp_train, REML=FALSE)
+  loop_model_fancy = lmer(CHI_MLU ~ tokens_CHI * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=temp_train, REML=FALSE)
   loop_model_basic = lmer(CHI_MLU ~ VISIT + Diagnosis + (1+VISIT|SUBJ), data=temp_train, REML=FALSE)
   
   #predict test data from the two models
@@ -153,6 +153,13 @@ mean(rmse_test_fancy)
 ```{r}
 
 #run test data
+#super fancy
+
+model_superfancy = lmer(CHI_MLU ~ tokens_CHI * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
+superfancy_test_predictions <- predict(superfancy_model, test, allow.new.levels =TRUE)
+superfancy_r_train <- rmse(test$CHI_MLU, superfancy_test_predictions)
+superfancy_r_train
+
 
 #fancy model
 fancy_model_train = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
@@ -172,15 +179,6 @@ basic_r_train
 
 - Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
 - Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
-
-
-```{r}
-
-
-
-
-```
-
 
 
 [HERE GOES YOUR ANSWER]
@@ -209,8 +207,11 @@ bernie
 #predict Bernie's future
 bernie_model_train = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train, REML=FALSE)
 
+
 bernie_test_predictions <- predict(bernie_model_train, bernie, allow.new.levels = TRUE)
 bernie_test_predictions [6:6]
+
+
 
 
 ```
