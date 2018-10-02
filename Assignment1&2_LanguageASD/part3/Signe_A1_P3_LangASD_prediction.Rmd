@@ -19,7 +19,6 @@ library(Metrics)
 library(caret)
 
 
-
 #load data 
 train_data <- read.csv("train.csv")
 
@@ -32,7 +31,6 @@ test_data<-test_data[complete.cases(test_data[ , 14]),] #remove na's
 
 
 ```
-
 
 
 ## Welcome to the third exciting part of the Language Development in ASD exercise
@@ -71,8 +69,6 @@ rmse_train <-rmse(train_data$CHI_MLU, predictions_train)
 rmse_train #use RMSE to calculate the performance of the model on the training data root
 
 
-
-
 #predict on test data
 predictions_test <- predict(languageModel_base_train, test_data, allow.new.levels = TRUE)
 
@@ -107,6 +103,9 @@ rmse_test/sd(test_data$CHI_MLU) #actually worse than the mean model --> we have 
 
 
 [HERE GOES YOUR ANSWER]
+
+
+
 
 ### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
 
