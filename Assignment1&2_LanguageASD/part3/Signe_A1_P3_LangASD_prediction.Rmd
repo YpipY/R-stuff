@@ -178,8 +178,8 @@ temp_train = NULL
 
 for (f in folds) {
   #divide into test and train
-  temp_test = filter(train_data, SUBJ %in% f)
-  temp_train = filter(train_data, ! SUBJ %in% f)
+  temp_test = filter(train_data, SUBJ %in% f) #could also have used train_data[f,]
+  temp_train = filter(train_data, ! SUBJ %in% f) #could also have used train_data[!f,]
   
   #run models on train
   lin_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
@@ -190,6 +190,7 @@ for (f in folds) {
   qua_predict_test <- predict(qua_model, temp_test, allow.new.levels = TRUE)
   lin_predict_train <- predict(lin_model, temp_train, allow.new.levels = TRUE)
   qua_predict_train <- predict(qua_model, temp_train, allow.new.levels = TRUE)
+  #another approach would be to sum the predictions and then compare with the actual values --> our approach works for rmse, but in other cases you should average the predictions and not the rmse values 
   
   
   #get average error and put into list
@@ -364,7 +365,15 @@ predictions_ados <- predict(ados_model, test_data, allow.new.levels = TRUE)
 rmse_ados <-rmse(test_data$CHI_MLU, predictions_ados)
 
 rmse_ados
+
+summary(ados_model)
+
+
+
 ```
+
+The model is however really weird, when you look at the intercept and if you plot the model. 
+
 
 From training the models and then predicting the test data, we see that the model which only includes ados together with diagnosis and visit (and not verbal IQ) predict the test data better than the model which also uses verbal IQ. This clearly shows that the model is overfitting, when more predicters is added to the model. 
 
