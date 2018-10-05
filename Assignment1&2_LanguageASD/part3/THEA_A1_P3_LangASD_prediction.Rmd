@@ -115,7 +115,7 @@ rmse_train_fancy = NULL
 rmse_test_fancy = NULL
 rmse_test_basic = NULL
 
-#create folds
+#create folds. devide by subject (only one subject). Avoid leakage of the model. 
 folds <- createFolds(unique(train$SUBJ), k=5, list = TRUE, returnTrain = FALSE)
 
 #loop
@@ -123,6 +123,7 @@ for (f in folds) {
   #seperate in cake pieces
   temp_test = filter(train, SUBJ%in% f)
   temp_train = filter(train, !SUBJ%in% f)
+  #other solution: data[f,] and data[!f,]
   
   #run training data through model
   loop_model_fancy = lmer(CHI_MLU ~ tokens_CHI * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=temp_train, REML=FALSE)
@@ -147,6 +148,8 @@ for (f in folds) {
 mean(rmse_test_basic)
 mean(rmse_test_fancy)
 
+
+#another solution: get raw predictions and assess actual difference between the training data and actial dataset with rmse
 
 ```
 

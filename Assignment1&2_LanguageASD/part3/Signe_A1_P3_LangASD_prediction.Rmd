@@ -21,7 +21,6 @@ library(Metrics)
 library(caret)
 
 
-
 #load data 
 train_data <- read.csv("train.csv")
 
@@ -34,7 +33,6 @@ test_data<-test_data[complete.cases(test_data[ , 14]),] #remove na's
 
 
 ```
-
 
 
 ## Welcome to the third exciting part of the Language Development in ASD exercise
@@ -82,8 +80,6 @@ rmse_train <-rmse(train_data$CHI_MLU, predictions_train)
 rmse_train #use RMSE to calculate the performance of the model on the training data root
 
 
-
-
 #predict on test data
 predictions_test <- predict(languageModel_base_train, test_data, allow.new.levels = TRUE)
 
@@ -119,6 +115,9 @@ rmse_test/sd(test_data$CHI_MLU) #actually worse than the mean model --> we have 
 We use the root mean square error to calculate the performance of the model.
 
 The performance of the quadratic model on the training data is 0.29. The performance on the test data is 1.01. The difference indicates that our model is overfitted, as it performs farely well on the training set, but fails to predict the test data. This shows that the model is not generalisable. 
+
+
+
 
 
 
