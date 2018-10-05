@@ -262,7 +262,7 @@ mean(trainTD$ADOS)
 
 # Calculating the differance between Bernie MLU and the models predictions of TD children
 for (i in 1:nrow(Bernie)) {
-  print(Bernie[i,13]-((1*0.25193)*(0.09992*i)-0.10352*0.8555556+2.77749-1.58791))
+  print(Bernie[i,13]-((i*1*0.25193)+(0.09992*i)-0.10352*0.8555556+2.77749-1.58791))
 }
 
 # Making predictions for the test data
@@ -289,13 +289,13 @@ summary(languageModel)
 [HERE GOES YOUR ANSWER]
 Looking at the child Bernie comparing to the linear mixed effects model with the interaction of diagnosis and number of visits aswell as the ADOS score. At difference between Bernie and the expected values were
 Visit     MLU
-1         0.86
-2         1.39
-3         2.18
-4         1.98
-5         1.95
-6         2.20
-Bernie therefore starts off higher than expected and ends even higher than expected at visit 6
+1         0.53
+2         0.74
+3         1.20
+4         0.67
+5         0.31
+6         0.24
+(Redo this) Bernie therefore starts off higher than expected and ends even higher than expected at visit 6 
 
 The preditions of the model was also tested using root mean square error. It was found that the predictions were off by an average by 0.91 child MLU, or 102 % of standard deviation. It is therefore a very poor prediction.
 
