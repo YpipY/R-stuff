@@ -13,19 +13,95 @@ In this exercise we will assess how many participants we would need to adequatel
 ### Exercise 1
 
 How much power does your study have (if your model estimates are quite right)?
+
 - [GitHub]Load your dataset, fit your favorite model, assess power for your main effects and interactions of interest.
+
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+```{r}
+#"/Users/thearolskovsloth/Studygroup/Assignment1&2_LanguageASD/part3"
+
+train <- read.csv("train.csv")
+train<-train[complete.cases(train[ , 14]),]
+
+library(tidyverse)
+library(ggplot2)
+library(lme4)
+library(dplyr)
+library(MuMIn)
+library(effects)
+library(Metrics)
+library(caret)
+library(simr)
+
+
+
+```
+
+
+```{r}
+
+
+fav_model = lmer(CHI_MLU ~ VISIT * Diagnosis + (1 + VISIT | SUBJ), train ,REML=F)
+summary(fav_model)
+
+powerDiag = powerSim(fav_model,fixed("Diagnosis", method = "t" ), nsim=1000)
+powerVisit = powerSim(fav_model,fixed("VISIT"), nsim=1000)
+powerInter = powerSim(fav_model, fixed("VISIT:Diagnosis"), nsim=1000)
+
+#simr::fixed
+
+powerVisit
+powerDiag
+powerInter
+
+fixef(fav_model)["VISIT"] <- 2
+fixef(fav_model)["DiagnosisTD"] <- 3
+
+powerCurveV = powerCurve(fav_model, fixed("Diagnosis"),along="SUBJ", nsim=1000)
+plot(powerCurveV)
+powerCurveV
+
+powerCurveInter = powerCurve(fav_model, fixed("VISIT:Diagnosis"),along="SUBJ", nsim=1000)
+plot(powerCurveInter)
+
+```
+
 
 ### Exercise 2
 
 How would you perform a more conservative power analysis?
+
 - Identify and justify a minimum effect size for each of your relevant effects
+
 - [GitHub] take the model from exercise 1 and replace the effects with the minimum effect size that you'd accept.
+
 - [GitHub] assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
+
 - [GitHub] if your power estimates do not reach an acceptable threshold simulate additional participants and repeat the previous analysis
+
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+```{r}
+
+
+
+```
+
 
 
 ### Exercise 3
 
-Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why..
+Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why.
+
+
+
+```{r}
+#run simulations 
+
+
+
+```
+
+
+
