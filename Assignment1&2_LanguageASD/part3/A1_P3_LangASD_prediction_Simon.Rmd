@@ -10,9 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 # Loading packages
 library(lmerTest)
 library(Metrics)
-install.packages('caret')
 library(caret)
 library(tidyverse)
+library(magrittr)
 ```
 
 ## Welcome to the third exciting part of the Language Development in ASD exercise
@@ -32,10 +32,15 @@ N.B. There are several datasets for this exercise, so pay attention to which one
 setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment1&2_LanguageASD/part3")
 # Loading data
 train<-read.csv("train.csv",stringsAsFactors = F)
-test<-read.csv("test.csv",stringsAsFactors = F)
+test<-read.csv("test.csv")
 # Removing NAs
 train<-train[complete.cases(train[ , 14]),]
 test<-test[complete.cases(test[ , 14]),]
+# Setting age to numeric
+test$Age<-as.numeric(test$Age)
+
+# Changing diagnosis to a factor to avoid issues later
+train$Diagnosis <-as.factor(train$Diagnosis)
 ```
 
 
@@ -68,10 +73,12 @@ rmse(pTest,test$CHI_MLU)
 rmse(pTest,test$CHI_MLU)/sd(test$CHI_MLU)
 ```
 - optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
-
+```{r,include = FALSE}}
+```
 formatting tip: If you write code in this document and plan to hand it in, remember to put include=FALSE in the code chunks before handing in.
 
 [HERE GOES YOUR ANSWER]
+Using the root mean square error it was found that compaired to data used to create our model the predictions was off by an average by 0.29 child MLU, or 31 % of standard deviation. However, when compaired to data not used in the creation of the model, predictions were off by an average by 1 child MLU, or 112 % of standard deviation. This means that the deviation of the models predictions cannot be explained by normal varriation in the data. The explanation is likely that we have overfitted out model. 
 
 ### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
 
@@ -91,6 +98,9 @@ Folds<-createFolds(unique(train$SUBJ), k=5, list=T)
 trainError=NULL
 testError=NULL
 realTestError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+realTestErrorSD=NULL
 n=0
 
 for (i in Folds) {
@@ -100,21 +110,29 @@ for (i in Folds) {
   languageModel2 = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=trainFold, REML=FALSE)
   pTrain <- predict(languageModel2,trainFold)
   trainError[n] <-rmse(pTrain,trainFold$CHI_MLU)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$CHI_MLU)/sd(trainFold$CHI_MLU)
   pTest <- predict(languageModel2,testFold,allow.new.levels = T)
   testError[n] <-rmse(pTest,testFold$CHI_MLU)
+  testErrorSD[n] <-rmse(pTest,testFold$CHI_MLU)/sd(testFold$CHI_MLU)
   pTest <- predict(languageModel2,test,allow.new.levels = T)
   realTestError[n] <-rmse(pTest,test$CHI_MLU)
+  realTestErrorSD[n] <-rmse(pTest,test$CHI_MLU)/sd(test$CHI_MLU)
   assign(paste("languageModel2_", n, sep = ""), languageModel2)
 }
 mean(trainError)
+mean(trainErrorSD)
 mean(testError)
+mean(testErrorSD)
 mean(realTestError)
-summary(languageModel2_2)
+mean(realTestErrorSD)
 
 # linear model
 trainError=NULL
 testError=NULL
 realTestError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+realTestErrorSD=NULL
 n=0
 
 for (i in Folds) {
@@ -124,16 +142,69 @@ for (i in Folds) {
   languageModel = lmer(CHI_MLU ~ Diagnosis * VISIT + (1+VISIT|SUBJ), data=trainFold,REML=FALSE)
   pTrain <- predict(languageModel,trainFold)
   trainError[n] <-rmse(pTrain,trainFold$CHI_MLU)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$CHI_MLU)/sd(trainFold$CHI_MLU)
   pTest <- predict(languageModel,testFold,allow.new.levels = T)
   testError[n] <-rmse(pTest,testFold$CHI_MLU)
+  testErrorSD[n] <-rmse(pTest,testFold$CHI_MLU)/sd(testFold$CHI_MLU)
   pTest <- predict(languageModel,test,allow.new.levels = T)
   realTestError[n] <-rmse(pTest,test$CHI_MLU)
+  realTestErrorSD[n] <-rmse(pTest,test$CHI_MLU)/sd(test$CHI_MLU)
   assign(paste("languageModel_", n, sep = ""), languageModel)
 }
 mean(trainError)
+mean(trainErrorSD)
 mean(testError)
+mean(testErrorSD)
 mean(realTestError)
-summary(languageModel_2)
+mean(realTestErrorSD)
+
+# Models tested
+  token_model = lmer(CHI_MLU ~ Diagnosis * VISIT + tokens_CHI  + (1+VISIT|SUBJ), data= trainFold, REML=FALSE)
+  token_verbal_model = lmer(CHI_MLU ~ Diagnosis * VISIT + tokens_CHI + verbalIQ  + (1+VISIT|SUBJ), data= trainFold, REML=FALSE)
+  ados_model = lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS  + (1+VISIT|SUBJ), data= trainFold, REML=FALSE)
+  ados_verbal_model = lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS + verbalIQ  + (1+VISIT|SUBJ), data= trainFold, REML=FALSE)
+#  Best model 
+  languageModel = lmer(CHI_MLU ~ ADOS * Age + (1+Age|SUBJ) , data=trainFold,REML=FALSE)
+  
+# Model tests
+
+# Removing the one gaddamn trail where these is no age (This took me way too long to figure out, I'm not even mad)
+# Uncomment this when looking at age::: train<-train[complete.cases(train[ , 6]),]
+
+trainError=NULL
+testError=NULL
+realTestError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+realTestErrorSD=NULL
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(train, !SUBJ %in% i)
+  testFold = filter(train, SUBJ %in% i)
+  languageModel = lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS+ (1+VISIT|SUBJ), data= trainFold, REML=FALSE)
+  pTrain <- predict(languageModel,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$CHI_MLU)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$CHI_MLU)/sd(trainFold$CHI_MLU)
+  pTest <- predict(languageModel,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$CHI_MLU)
+  testErrorSD[n] <-rmse(pTest,testFold$CHI_MLU)/sd(testFold$CHI_MLU)
+  pTest <- predict(languageModel,test,allow.new.levels = T)
+  realTestError[n] <-rmse(pTest,test$CHI_MLU)
+  realTestErrorSD[n] <-rmse(pTest,test$CHI_MLU)/sd(test$CHI_MLU)
+  assign(paste("languageModel_", n, sep = ""), languageModel)
+}
+mean(trainError)
+mean(trainErrorSD)
+mean(testError)
+mean(testErrorSD)
+mean(realTestError)
+mean(realTestErrorSD)
+
+testError
+rmse(pTrain,trainFold$CHI_MLU)
+
 ```
 
 Which model is better at predicting new data: the one you selected last week or the one chosen via cross-validation this week?
@@ -148,6 +219,23 @@ Which model is better at predicting new data: the one you selected last week or 
 
 
 [HERE GOES YOUR ANSWER]
+A quadratic mixed effects model was created on the linguistic development of children MLU. With the fixed effctes being an interaction effect between diagnosis and number of visits, and visits being quadratic. Random effects was intercepts and slopes by subjects for child MLU. 
+Assumptions of homoscedasticity and normality was tested and no violation was found.
+Instead of a P-value obtained by likelihood ratio test, the model was run though a cross-validation with a K-fold with 5 folds. The models predictive power was then tested using root mean square error.
+It was found that the models predictions for the training folds was was off by an average by 0.29 child MLU, or 31 % of standard deviation. The models predictions for the test folds was off by an average by 0.73 child MLU, or 81 % of standard deviation. The models predictions for the separate test data was off by an average by 0.96 child MLU, or 107 % of standard deviation.
+
+A linear mixed effects model was also created on the linguistic development of children MLU. With the fixed effctes being an interaction effect between diagnosis and number of visits. Random effects was intercepts and slopes by subjects for child MLU. 
+Assumptions of homoscedasticity and normality was tested and no violation was found.
+Instead of a P-value obtained by likelihood ratio test, the model was run though a cross-validation with a K-fold with 5 folds. The models predictive power was then tested using root mean square error.
+It was found that the models predictions for the training folds was was off by an average by 0.35 child MLU, or 37 % of standard deviation. The models predictions for the test folds was off by an average by 0.74 child MLU, or 82 % of standard deviation. The models predictions for the separate test data was off by an average by 0.96 child MLU, or 107 % of standard deviation.
+
+In conclusion there is no predictive difference between the linear and quadratic model. The quadratic model is better at explaining the data it is trained on, however, this holds no real explanation of the data, it is just better at explaining the noise of the specific data.
+
+Another linear mixed effects model was also created on the linguistic development of children MLU. With the fixed effctes being an interaction effect between diagnosis and number of visits, aswell as ADOS as a non-interaction. Random effects was intercepts and slopes by subjects for child MLU. 
+Instead of a P-value obtained by likelihood ratio test, the model was run though a cross-validation with a K-fold with 5 folds. The models predictive power was then tested using root mean square error.
+It was found that the models predictions for the training folds was off by an average by 0.35 child MLU, or 37 % of standard deviation. The models predictions for the test folds  was off by an average by 0.66 child MLU, or 74 % of standard deviation. The models predictions for the separate test datawas off by an average by 0.67 child MLU, or 75 % of standard deviation.
+
+This shows that a model which is good a predicting the data it is trained on, is not necessarily better at predicting new data. 
 
 ### Exercise 3) Assessing the single child
 
@@ -161,11 +249,55 @@ Bernie <- filter(test,SUBJ==2)
 You want to evaluate:
 
 - how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
+```{r,include = FALSE}}
+# Loading model
+ados_model = lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS  + (1+VISIT|SUBJ), data= train, REML=FALSE)
+summary(ados_model)
+
+# Making a new dataset with only TD
+trainTD <- filter(train, Diagnosis == 'TD')
+
+# Getting mean TD for ADOS
+mean(trainTD$ADOS)
+
+# Calculating the differance between Bernie MLU and the models predictions of TD children
+for (i in 1:nrow(Bernie)) {
+  print(Bernie[i,13]-((1*0.25193)*(0.09992*i)-0.10352*0.8555556+2.77749-1.58791))
+}
+
+# Making predictions for the test data
+pTest <- predict(ados_model,Bernie,allow.new.levels = T)
+pTest
+
+rmse(pTest,test$CHI_MLU)
+rmse(pTest,test$CHI_MLU)/sd(test$CHI_MLU)
+
+# test stuff
+trainASD <- filter(train, Diagnosis == 'ASD')
+
+group_by(trainTD,VISIT) %>% 
+  dplyr::summarize(Mean = mean(CHI_MLU, na.rm=TRUE))%T>% 
+  assign("meanToken",.,envir = .GlobalEnv)
+
+languageModel = lmer(CHI_MLU ~ Diagnosis * VISIT + (1+VISIT|SUBJ), data=train,REML=FALSE)
+summary(languageModel)
+```
 (Tip: recreate the equation of the model: Y=Intercept+BetaX1+BetaX2, etc; input the average of the TD group  for each parameter in the model as X1, X2, etc.).
 
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
 
 [HERE GOES YOUR ANSWER]
+Looking at the child Bernie comparing to the linear mixed effects model with the interaction of diagnosis and number of visits aswell as the ADOS score. At difference between Bernie and the expected values were
+Visit     MLU
+1         0.86
+2         1.39
+3         2.18
+4         1.98
+5         1.95
+6         2.20
+Bernie therefore starts off higher than expected and ends even higher than expected at visit 6
+
+The preditions of the model was also tested using root mean square error. It was found that the predictions were off by an average by 0.91 child MLU, or 102 % of standard deviation. It is therefore a very poor prediction.
 
 ### OPTIONAL: Exercise 4) Model Selection via Information Criteria
 Another way to reduce the bad surprises when testing a model on new data is to pay close attention to the relative information criteria between the models you are comparing. Let's learn how to do that!

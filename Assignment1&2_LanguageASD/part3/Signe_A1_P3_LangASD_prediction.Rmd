@@ -2,7 +2,9 @@
 title: "Assignment 1 - Language Development in ASD - part 3"
 author: "Riccardo Fusaroli"
 date: "August 10, 2018"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -163,6 +165,10 @@ rmse_train_qua = NULL
 
 rmse_test_qua = NULL
 
+rmse_test_lin = NULL
+rmse_train_lin = NULL
+  
+
 temp_test = NULL
 
 temp_train = NULL
@@ -270,6 +276,7 @@ Both models performs poorly in predicting the test data. After the cross-validat
 - Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
 
 ```{r}
+
 rmse_test_token <- NULL
 rmse_test_token_verbal <- NULL
 rmse_test_ados <- NULL
@@ -291,21 +298,20 @@ for (f in folds) {
   token_verbal_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + tokens_CHI + verbalIQ  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
   ados_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
   ados_verbal_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS + verbalIQ  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
-  
 
-  #predict from the two models on both train and test data, train data does not really make sense --> just pedagogic 
+  #predict from the two models on test data
   predict_token_model <- predict(token_model, temp_test, allow.new.levels = TRUE)
   predict_ados_model <- predict(ados_model, temp_test, allow.new.levels = TRUE)
   predict_ados_verbal_model <- predict(ados_verbal_model, temp_test, allow.new.levels = TRUE)
   predict_token_verbal_model <- predict(token_verbal_model, temp_test, allow.new.levels = TRUE)
-  
-  
+
   
   #get average error and put into list
   rmse_test_token <- c(rmse_test_token, rmse(temp_test$CHI_MLU, predict_token_model))
   rmse_test_token_verbal <- c( rmse_test_token_verbal, rmse(temp_test$CHI_MLU, predict_token_verbal_model))
   rmse_test_ados <- c(rmse_test_ados, rmse(temp_test$CHI_MLU, predict_ados_model))
   rmse_test_ados_verbal <- c( rmse_test_ados_verbal, rmse(temp_test$CHI_MLU, predict_ados_verbal_model))
+
 
   
 }
@@ -318,11 +324,23 @@ mean(rmse_test_token_verbal)
 mean(rmse_test_ados) 
 
 mean(rmse_test_ados_verbal)
+
+
+
+
 ```
+We have cross-validated the following models: 
 
-The model that produces the best cross-validated results are the one with verbal IQ and tokens-CHI (number of unique words) in addition to diagnosis and visit. The reason for this is the high correlation between tokens_CHI and child MLU as they measure almost the same thing. The model which takes the severety of autism and verbal IQ at the first visit into account is the next best model and it makes more sense to have a model which uses values obtained at the first visit, as we often want to predict what will happen at the following five visits. 
+token_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + tokens_CHI  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
+token_verbal_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + tokens_CHI + verbalIQ  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
+ados_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
+ados_verbal_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS + verbalIQ  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
 
-We can try to train the model on the training data and then see how well it predicts the test data. 
+
+
+The model that produces the best cross-validated results are the one with verbal IQ and tokens-CHI (number of unique words) as fixed effects together with diagnosis and visit (rmse = 0.48). The reason for this is the high correlation between tokens_CHI and child MLU as they measure almost the same thing. There is a leakage in the model. The model which takes the severety of autism (ADOS) and verbal IQ at the first visit into account together with diagnosis and visit as fixed effects is the second best model. It makes more sense to have a model which uses values obtained at the first visit, as we often want to predict what will happen at the following five visits.  
+
+We can try to train the model which includes ados as fixed effects on the training data and then see how well it predicts the test data. 
 
 ```{r}
 ados_verbal_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS + verbalIQ  + (1+VISIT|SUBJ), data= train_data, REML=FALSE)
@@ -334,9 +352,20 @@ predictions_ados_verbal <- predict(ados_verbal_model, test_data, allow.new.level
 rmse_ados_verbal <-rmse(test_data$CHI_MLU, predictions_ados_verbal)
 
 rmse_ados_verbal
+
+
+ados_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS  + (1+VISIT|SUBJ), data= train_data, REML=FALSE) #better without verbal iq on test data 
+
+predictions_ados <- predict(ados_model, test_data, allow.new.levels = TRUE)
+
+
+
+rmse_ados <-rmse(test_data$CHI_MLU, predictions_ados)
+
+rmse_ados
 ```
 
-Better, but still pretty bad. 
+From training the models and then predicting the test data, we see that the model which only includes ados together with diagnosis and visit (and not verbal IQ) predict the test data better than the model which also uses verbal IQ. This clearly shows that the model is overfitting, when more predicters is added to the model. 
 
 
 
@@ -401,7 +430,7 @@ visit=1
 
 
 
-```{r}
+```{r, include=FALSE}
 qua_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train_data, REML=FALSE)
 
 summary(qua_model)
@@ -423,6 +452,8 @@ We then set TD = 1, and put in from 1 to 6 in visits. From that we get the avera
 After this we subtract Bernies values from the avearge TD values and find the absolute difference. These are: 0.7444560 0.7644444 1.1131915 0.5630986 0.2532523 0.3084127. 
 
 ```{r, include = FALSE}
+Bernie_data <- subset(test_data, SUBJ == "2", select = c("SUBJ", "CHI_MLU", "Diagnosis", "VISIT"))
+
 Diagnosis = 1
 Visit = 1
 
@@ -441,7 +472,7 @@ abs(tk)
 
 
 
-```{r}
+```{r, include=FALSE}
 #we have anonymized the subject, but we have looked it up and he is participant number 2
 
 

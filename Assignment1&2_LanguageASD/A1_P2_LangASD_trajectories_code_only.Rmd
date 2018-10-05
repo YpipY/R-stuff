@@ -258,7 +258,7 @@ Your task now is to figure out how to best describe the children linguistic traj
 
 ```{r ex4, include = FALSE}
 #You know the deal by now :|
-boxplot(types_CHI ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
+boxplot(types_CHI ~ ADOS, col=c("white","lightgray"),data)
 languageModelTest = lmer(types_CHI ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
 summary(languageModelTest)
 r.squaredGLMM(languageModelTest)
