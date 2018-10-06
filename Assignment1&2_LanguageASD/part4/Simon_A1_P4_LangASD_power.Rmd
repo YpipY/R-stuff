@@ -12,29 +12,92 @@ In this exercise we will assess how many participants we would need to adequatel
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # Loading packages
-library(lmerTest)
+#library(lmerTest)
+#detach('package:lmerTest', unload=TRUE)
+library(lme4)
+library(simr)
 ```
 
 ### Exercise 1
-```{r setup, include=FALSE}
+```{r, include=FALSE}
 # Setting WD
-setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment1&2_LanguageASD/part3")
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment1&2_LanguageASD/part4")
 # Loading data
-train<-read.csv("train.csv",stringsAsFactors = F)
-test<-read.csv("test.csv")
+train<-read.csv("train.csv")
+train<-train[complete.cases(train[ , 14]),]
+# Setting the model
+ados_model = lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS  + (1+VISIT|SUBJ), data= train, REML=FALSE)
+summary(ados_model)
+simpleModel=lmer(CHI_MLU  ~  Diagnosis * VISIT  +  (1  +  VISIT  |  SUBJ), data= train,REML=F) 
+summary(simpleModel)
 ```
 How much power does your study have (if your model estimates are quite right)?
 - [GitHub]Load your dataset, fit your favorite model, assess power for your main effects and interactions of interest.
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
+```{r, include=FALSE}
+## Performing powersims, all using likelihood ratio
+
+# Trying to figure out powerSim
+?powerSim
+powerSim(simpleModel,fixed('Diagnosis:VISIT',method='kr'),nsim=10)
+powerSim(ados_model, fcompare(~ Diagnosis + VISIT - Diagnosis * VISIT, 'lr'), nsim=10)
+lastResult()$error
+powerSim(simpleModel,simr::fixed('Diagnosis','lr'),nsim=10)
+lastResult()$warnings
+powerSim(simpleModel,fixed('VISIT'),nsim=10)
+powerSim(ados_model,fixed('ADOS'),nsim=10)
+
+# Powersim for the interaction of diagnosis and visit
+powerSim(simpleModel,simr::fixed('Diagnosis:VISIT',method='lr'),nsim=1000)
+# Powersim for the diagnosis
+powerSim(simpleModel,simr::fixed('Diagnosis', method='lr'),nsim=1000)
+# Powersim for the Visit
+powerSim(simpleModel,simr::fixed('VISIT', method='lr'),nsim=1000)
+```
+
+[ANSWER]
+For the model I chose a linear mixed effects model predicting child MLU development. With the fixed effctes being an interaction effect between diagnosis and number of visits. andom effects was intercepts and slopes by subjects for child MLU.
+A power simulations was run on the interaction effect of diagnosis and visits. 1000 simulations where run with p-value optained via likelihood ratio test and 95% confidence interval. The simulation found 100 % power.
+Power simulations were also run for diagnosis and visit in the same way. The power of the diagnosis predictor was 22.10% and the power the visit predictor was 0%. However, it does not make much sense to look at the power of the individual predictors since we this is a interaction effect.
+So according to this power simulation, the experiment was very overpowered.
+However, this is misleading since we are using the effect size that our model predicted and this is likely an overestimate of the true effect size since the model has likly overfittet. Therfore we cannot really conclude that our experiment has enough power or use the effect size to motivate the power of future studies.
 
 ### Exercise 2
 
 How would you perform a more conservative power analysis?
 - Identify and justify a minimum effect size for each of your relevant effects
 - [GitHub] take the model from exercise 1 and replace the effects with the minimum effect size that you'd accept.
+```{r, include=FALSE}
+# The model
+simpleModelLow=lmer(CHI_MLU  ~  Diagnosis * VISIT  +  (1  +  VISIT  |  SUBJ), data= train,REML=F) 
+summary(simpleModel)
+# Getting s messure of Cohen's d
+0.25112/sd(train$CHI_MLU)
+# Cohen suggested 0.2 is a small effects size
+0.2*sd(train$CHI_MLU)
+# Mimimum effect then is
+0.1866996
+```
 - [GitHub] assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
+```{r, include=FALSE}
+# Setting the Mimimum effect
+simpleModelLow@beta[4]<-0.1866996
+# Runing the simulations for the power curve
+pc<-powerCurve(simpleModel, simr::fixed('Diagnosis:VISIT',method='lr'),along = 'SUBJ')
+pc
+plot(pc)
+pc2<-powerCurve(simpleModelLow, simr::fixed('Diagnosis:VISIT',method='lr'),along = 'SUBJ')
+pc2
+plot(pc2)
+
+pc4<-powerCurve(simpleModelLow, simr::fixed('Diagnosis:VISIT',method='lr'),along = 'SUBJ', breaks= c(15:30))
+pc4
+plot(pc4)
+```
 - [GitHub] if your power estimates do not reach an acceptable threshold simulate additional participants and repeat the previous analysis
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+[ANSWER]
 
 
 ### Exercise 3
