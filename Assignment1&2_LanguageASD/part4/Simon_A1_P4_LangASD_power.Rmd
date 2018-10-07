@@ -1,7 +1,7 @@
 ---
 title: "Assignment 1 - Language Development in ASD - part 4"
-author: "Riccardo Fusaroli"
-date: "August 10, 2017"
+author: "Simon Moeller Nielsen"
+date: "07/10 2018"
 output: html_document
 ---
 
@@ -71,7 +71,7 @@ How would you perform a more conservative power analysis?
 # The model
 simpleModelLow=lmer(CHI_MLU  ~  Diagnosis * VISIT  +  (1  +  VISIT  |  SUBJ), data= train,REML=F) 
 summary(simpleModel)
-# Getting s messure of Cohen's d
+# Getting a messure of Cohen's d
 0.25112/sd(train$CHI_MLU)
 # Cohen suggested 0.2 is a small effects size
 0.2*sd(train$CHI_MLU)
@@ -83,13 +83,12 @@ summary(simpleModel)
 # Setting the Mimimum effect
 simpleModelLow@beta[4]<-0.1866996
 # Runing the simulations for the power curve
-pc<-powerCurve(simpleModel, simr::fixed('Diagnosis:VISIT',method='lr'),along = 'SUBJ')
+pc<-powerCurve(simpleModelLow, simr::fixed('Diagnosis:VISIT',method='lr'),along = 'SUBJ')
 pc
 plot(pc)
 pc2<-powerCurve(simpleModelLow, simr::fixed('Diagnosis:VISIT',method='lr'),along = 'SUBJ')
 pc2
 plot(pc2)
-
 pc4<-powerCurve(simpleModelLow, simr::fixed('Diagnosis:VISIT',method='lr'),along = 'SUBJ', breaks= c(15:30))
 pc4
 plot(pc4)
@@ -98,8 +97,17 @@ plot(pc4)
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
 
 [ANSWER]
-
+To find a more conservative estimate of power, to motivate number of paticipants for a future experiment, the lowest acceptable effect size was set in the model. Using Cohen's d a minimum effect size was fund given the standard deviation of child MLU. It was found that for a small effect size acording to Cohen's d (d=0.2) it would be 0.19.
+An simulation of the power was run varying number of participants. It was found that at and above 26 participant the power of the effect would reliably be above 80%.
+We can use this messure to say that if we want to get a reliable result we need to run experiments with atleast 26 participants.
+This is of couse not a messure of the real effect size, only the minimum we are willing to expect. The means that either it is above and we will have even greater power or it is below and we will not be able to use it even if we could get a reliable result. It is of couse better to a more informed effect size since this is very conservative and therefor we might get more participants than we need and therefore waste resources, however, since we have no idea of want the real effect size might be this is the best we can do.
 
 ### Exercise 3
 
 Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why.
+```{r, include=FALSE}
+# Getting the estimated power for 30 participants
+pc4
+```
+[ANSWER]
+The power for the interaction between diagnosis and visit with 30 participants is around 89.2 %, meaning that even with the smallest effect size we are willing to accept we still have good power. Running the experiment is therefore worth it, since even if the effect size is smaller than the estimate and therefore lowering the power and giving us unreliable results, it will not be a very usable effect.
