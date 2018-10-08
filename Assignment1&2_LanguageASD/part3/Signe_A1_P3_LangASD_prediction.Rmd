@@ -51,14 +51,12 @@ N.B. There are several datasets for this exercise, so pay attention to which one
 
 How did your models from last time perform? In this exercise you have to compare the results on the training data () and on the test data. Report both of them. Compare them. Discuss why they are different.
 
-Two two models from last time are the linear and the quadratic model with an interaction effect between diagnosis and visit.
-We most simple model is the linear model wihtout an interaction.  
+The two models from last time are the linear and the quadratic model with an interaction effect between diagnosis and visit. We use the linear model with interaction of the same fixed effects as the “basic model”. Thus, the two models we will compare look like this:
 
 qua_model = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ)
 
-lin_model = lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT |SUBJ))
+lin_model = lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT+ I(VISIT^2)|SUBJ)
 
-lin_model_simple = lmer(CHI_MLU ~ Diagnosis + VISIT  + (1+VISIT |SUBJ))
 
 - recreate the models you chose last time (just write the model code again and apply it to your training data (from the first assignment))
 - calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
@@ -70,32 +68,60 @@ formatting tip: If you write code in this document and plan to hand it in, remem
 
 ```{r, include=FALSE}
 
-languageModel_base_train = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train_data, REML=FALSE) #create model on training data 
+qua_model = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train_data, REML=FALSE) #create model on training data 
+
+summary(qua_model)
+
+#on train data
+predictions_train_qua <- predict(qua_model, train_data, allow.new.levels = TRUE) #make predictions from model on the training data
+
+rmse_train_qua <-rmse(train_data$CHI_MLU, predictions_train_qua)
+
+rmse_train_qua #use RMSE to calculate the performance of the model on the training data root
 
 
-predictions_train <- predict(languageModel_base_train, train_data, allow.new.levels = TRUE) #make predictions from model on the training data
+#predict on test data for quadratic model 
+predictions_test_qua <- predict(qua_model, test_data, allow.new.levels = TRUE)
 
-rmse_train <-rmse(train_data$CHI_MLU, predictions_train)
+rmse_test_qua <-rmse(test_data$CHI_MLU, predictions_test_qua) #make predictions from model on the training data
 
-rmse_train #use RMSE to calculate the performance of the model on the training data root
-
-
-#predict on test data
-predictions_test <- predict(languageModel_base_train, test_data, allow.new.levels = TRUE)
-
-rmse_test <-rmse(test_data$CHI_MLU, predictions_test) #make predictions from model on the training data
-
-rmse_test #use RMSE to calculate the performance of the model on the training data root
+rmse_test_qua #use RMSE to calculate the performance of the model on the training data root
 
 
-rmse_train
-rmse_test
 
 #to get an idea of whether it's better than the error we get by just using the mean as a model
-rmse_train/sd(train_data$CHI_MLU)#better than the mean model
+rmse_train_qua/sd(train_data$CHI_MLU)#better than the mean model
 
-rmse_test/sd(test_data$CHI_MLU) #actually worse than the mean model --> we have probably overfitted our model
+rmse_test_qua/sd(test_data$CHI_MLU) #actually worse than the mean model --> we have probably overfitted our model
 
+
+
+#now for the linear model 
+
+lin_model = lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT+ I(VISIT^2)|SUBJ), data=train_data, REML=FALSE) #include your full random effects in your simple model, so same random effects in both linear and quadratic
+
+summary(lin_model)
+
+#predict on test data for linear model 
+predictions_test_lin <- predict(lin_model, test_data, allow.new.levels = TRUE)
+
+rmse_test_lin <-rmse(test_data$CHI_MLU, predictions_test_lin) #make predictions from model on the training data
+
+rmse_test_lin #use RMSE to calculate the performance of the model on the training data root
+
+
+#on train data
+predictions_train_lin <- predict(lin_model, train_data, allow.new.levels = TRUE) #make predictions from model on the training data
+
+rmse_train_lin <-rmse(train_data$CHI_MLU, predictions_train_lin)
+
+rmse_train_lin #use RMSE to calculate the performance of the model on the training data root
+
+
+
+
+#to get an idea of whether it's better than the error we get by just using the mean as a model
+rmse_test_lin/sd(test_data$CHI_MLU)#better than the mean model
 
 
 
@@ -112,11 +138,14 @@ rmse_test/sd(test_data$CHI_MLU) #actually worse than the mean model --> we have 
 
 ```
 
+Model       train_rmse    test_rmse
+lin_model   0.28          1.02          
+qua_model   0.29          1.01
+
+
 We use the root mean square error to calculate the performance of the model.
 
-The performance of the quadratic model on the training data is 0.29. The performance on the test data is 1.01. The difference indicates that our model is overfitted, as it performs farely well on the training set, but fails to predict the test data. This shows that the model is not generalisable. 
-
-
+The performance of the quadratic model on the training data is 0.29. The performance on the test data is 1.01. The difference indicates that our model is overfitted, as it performs farely well on the training set, but fails to predict the test data. This shows that the model is not generalisable. The same thing counts for the linear model. The performance for the linear model on the training data is 0.38 and 1.02 on the test data. In comparison the two models are equally good. 
 
 
 
@@ -181,22 +210,19 @@ for (f in folds) {
   temp_train = filter(train_data, ! SUBJ %in% f) #could also have used train_data[!f,]
   
   #run models on train
-  lin_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT|SUBJ), data= temp_train, REML=FALSE)
+  lin_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT + I(VISIT^2)|SUBJ), data= temp_train, REML=FALSE)
   qua_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=temp_train, REML=FALSE)
   
   #predict from the two models on both train and test data, train data does not really make sense --> just pedagogic 
   lin_predict_test <- predict(lin_model, temp_test, allow.new.levels = TRUE)
   qua_predict_test <- predict(qua_model, temp_test, allow.new.levels = TRUE)
-  lin_predict_train <- predict(lin_model, temp_train, allow.new.levels = TRUE)
-  qua_predict_train <- predict(qua_model, temp_train, allow.new.levels = TRUE)
+ 
   #another approach would be to sum the predictions and then compare with the actual values --> our approach works for rmse, but in other cases you should average the predictions and not the rmse values 
   
   
   #get average error and put into list
   rmse_test_lin <- c(rmse_test_lin, rmse(temp_test$CHI_MLU, lin_predict_test))
-  rmse_train_lin <- c(rmse_train_lin, rmse(temp_train$CHI_MLU, lin_predict_train))
   rmse_test_qua <- c( rmse_test_qua, rmse(temp_test$CHI_MLU, qua_predict_test))
-  rmse_train_qua <- c(rmse_train_qua, rmse(temp_train$CHI_MLU, qua_predict_train))
   
   
 }
@@ -204,21 +230,14 @@ for (f in folds) {
 #rmse, errors for the linear model on the test data set
  rmse_test_lin
  
- rmse_train_lin
- 
  rmse_test_qua
  
- rmse_train_qua
  
  
 
 mean(rmse_test_lin) #get the mean error across the folds for the linear model
 
 mean(rmse_test_qua) #get the mean error across the folds for the quadratic model
-
-mean(rmse_train_lin)
-
-mean(rmse_train_qua)
 
 
 ```
@@ -231,7 +250,7 @@ mean(rmse_train_qua)
 #test the two models on the test data 
 
 #first train the models on full training data, no folds
-lin_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT|SUBJ), data = train_data, REML=FALSE)
+lin_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT+ I(VISIT^2)|SUBJ), data = train_data, REML=FALSE)
 
 
 qua_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=train_data, REML=FALSE)
@@ -250,7 +269,9 @@ rmse_test_qua <-rmse(test_data$CHI_MLU, predictions_test_qua) #make predictions 
 
 rmse_test_lin
 
+
 rmse_test_qua
+
 
 #to get an idea of whether it's better than the error we get by just using the mean as a model
 rmse_test_lin/sd(train_data$CHI_MLU)#better than the mean model
@@ -259,22 +280,24 @@ rmse_test_qua/sd(test_data$CHI_MLU) #actually worse than the mean model --> we h
 
 ```
 
+Model       average_rmse_temp_test(fold)    rmse_test
+lin_model   0.76                            1.02                                        
+qua_model   0.73                            1.01
 
-From cross-validation with 5-folds on the quadratic and the linear model, we found that the quadratic model performed best (average rmse = 0.72), when predicting CHI-MLU. However the linear model had an average performance at 0.78 and thereby the difference between the to is rather small. The two models are therefore almost equally good.  
-
-One thing to notice is that when we use the models to predict from the training data (inside the fold), both models perform much better, linear rsme = 0.35, quadratic rsme = 0.28. This again is an indicator of the models overfitting. 
 
 
-In order to test both models on the test data, we first train the models on the training data.Thereafter predict the test data, from the trained models. The quadratic model was able to predict the test data with an average error (rmse) of 1.009. The linear model predict the test data with an average error (rmse) of 1.007. 
+From cross-validation with 5-folds on the quadratic and the linear model, we found that the quadratic model performed best (average rmse = ??), when predicting CHI-MLU. However the linear model had an average performance at ?? and thereby the difference between the to is rather small. Thereby we know from the cross validation that the two models are almost equally good.  
 
-Both models performs poorly in predicting the test data. After the cross-validation we found that the two models were almost equally good and it therefore makes sense, that their predictive abilities are similar. As mentioned earlier, the models perform well in predicting the training data. Thus, this poor performance on the test data is an indocator of the models being overfitted. One way to overcome this obstacle would be to sample more data to train the models on. 
+
+
+In order to test both models on the test data, we first train the models on the training data.Thereafter predict the test data, from the trained models (like in exercise 1). The quadratic model was able to predict the test data with an error (rmse) of 1.01. The linear model predict the test data with an  error (rmse) of 1.02. 
+
+Both models performs poorly in predicting the test data. After the cross-validation we found that the two models were almost equally good and it therefore makes sense, that their predictive abilities are similar. As mentioned earlier, the models perform well in predicting the training data. Thus, this poor performance on the test data could be an indocator of the models overfitting. One way to overcome this obstacle would be to sample more data to train the models on. 
 
 
 
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
 
-- Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
-- Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
 
 ```{r}
 
@@ -492,29 +515,19 @@ Bernie_data <- subset(test_data, SUBJ == "2", select = c("SUBJ", "CHI_MLU", "Dia
 summary(qua_model)
 
 
+data_without_bernie = filter(test_data, !(SUBJ == "2" & VISIT == 6))
+data_bernie_6 = filter(test_data, (SUBJ == "2" & VISIT == 6))
+bernie_model = lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data = data_without_bernie)
+prediction_bernie_6 <- predict(bernie_model, data_bernie_6, allow.new.levels = TRUE)
 
-#use the model to predict on data 
-predictions_qua_bernie <- predict(qua_model, Bernie_data, allow.new.levels = TRUE)
-
-
-
-rmse_qua_bernie <-rmse(Bernie_data$CHI_MLU, predictions_qua_bernie)
-
+prediction_bernie_6
 
 
-rmse_qua_bernie
 
-predictions_qua_bernie [6:6]
-
-predictions_qua_bernie
-
-
-difference =1.880553-3.448413
-difference
-
+3.115867 -3.448413
 ```
 
-The quadratic model would predict Bernie to have an MLU of 1.88 at the sixth visit. However the measured MLU for Bernie was 3.45, thereby we can see that above average from what would be expected of children with autism. The difference between the predicted and the actual value of mean length of utterance is 1.57. If the look at ADOS for Bernie, which we can see that his autism is not very severe. This could explain why he overperforms in MLU compared to what the model would predict, as it does not take into account that autism varies on a spectum.  
+The quadratic model would predict Bernie to have an MLU of 3.12 at the sixth visit. However the measured MLU for Bernie was 3.45 at the sixth visit, thereby we can see that he performs above what would be expected of children with autism. The difference between the predicted and the actual value of mean length of utterance is 0.33. If the look at ADOS for Bernie, which we can see that his autism is not very severe. This could explain why he overperforms in MLU compared to what the model would predict, as it does not take into account that autism varies on a spectum. But the difference is rather small, so it could be due to random noise.   
 
 
 ### OPTIONAL: Exercise 4) Model Selection via Information Criteria
