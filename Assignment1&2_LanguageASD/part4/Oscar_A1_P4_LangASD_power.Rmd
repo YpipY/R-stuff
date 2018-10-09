@@ -1,0 +1,88 @@
+---
+title: "Assignment 1 - Language Development in ASD - part 4"
+author: "Riccardo Fusaroli"
+date: "August 10, 2017"
+output: html_document
+---
+
+
+## Welcome to the fourth exciting part of the Language Development in ASD exercise
+
+In this exercise we will assess how many participants we would need to adequately replicate our findings (ensuring our sample size is adequate, our alpha at 0.05 and our beta at 0.8).
+
+### Exercise 1
+
+How much power does your study have (if your model estimates are quite right)?
+- [GitHub]Load your dataset, fit your favorite model, assess power for your main effects and interactions of interest.
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+### Exercise 2
+
+How would you perform a more conservative power analysis?
+- Identify and justify a minimum effect size for each of your relevant effects
+- [GitHub] take the model from exercise 1 and replace the effects with the minimum effect size that you'd accept.
+- [GitHub] assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
+- [GitHub] if your power estimates do not reach an acceptable threshold simulate additional participants and repeat the previous analysis
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+
+### Exercise 3
+
+Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why.
+```{r}
+library(lme4)
+library(simr)
+library(lmerTest)
+
+training = read.csv("train.csv", stringsAsFactors = F)
+
+#Removing all NA values from my dataset and testing to see if i have any NA remaining.
+training = training[complete.cases(training[,14]),]
+training = training[complete.cases(training[,6]),]
+apply(training, 2, function(x) any(is.na(x)))
+
+
+
+
+
+```
+
+```{r}
+model = lmer(CHI_MLU ~ ADOS * Age + (1+Age|SUBJ), data = training)
+summary(model)
+
+
+
+powerSim(model,simr::fixed('ADOS:Age',method='t'),nsim=100)
+
+fixef(model)["ADOS:Age"] = -0.048
+powerCurveV = powerCurve(model, fixed("ADOS:Age", method = 't'),along="SUBJ", nsim=200)
+
+plot(powerCurveV) #Power curve says 7 subj = 80% power. seems highly unlikely.
+
+length(unique(training$SUBJ)) #How many unique subjects do i have?
+sqrt(60) # = 7.745967
+
+
+
+
+```
+
+```{r}
+
+powerCurveA = powerCurve(model, fixed("Age"),along="SUBJ", nsim=100)
+```
+
+
+
+We get 100% power for our effect size. Meaning that if we test for this effect size we will always find it. Would we like to increase our minimum effect size?
+
+What would be a minimum effect size?
+
+Our effect size should be larger than the variance. Our effect size of -0.0047 tells us that per ados point, the development of MLU will decrease with 0.0047 per month. Since the study is 24 months, the difference in MLU will be 24*0.0047 = 0.1152 per ADOS at the end of the study. 
+
+
+
+```{r}
+
+
