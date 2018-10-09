@@ -64,6 +64,7 @@ powerInter
 ```
 
 
+
 ### Exercise 2
 How would you perform a more conservative power analysis?
 
@@ -80,10 +81,12 @@ How would you perform a more conservative power analysis?
 
 ```{r}
 
-fixef(pow_model)["VISIT"] <- 0.2
-fixef(pow_model)["Diagnosis"] <- 0.8
-fixef(pow_model)["VISIT:Diagnosis"] <-0.5
+fixef(pow_model)["VISIT"] <- 0.08
+fixef(pow_model)["Diagnosis"] <- -0.15
+fixef(pow_model)["VISIT:Diagnosis"] <- 0.2
 
+
+summary(pow_model)
 
 ```
 
@@ -91,17 +94,25 @@ fixef(pow_model)["VISIT:Diagnosis"] <-0.5
 
 ```{r}
 
-powerCurveDiag = powerCurve(pow_model, simr::fixed("Diagnosis"),along="SUBJ", nsim=1000)
+doubletrain <- merge(train, train, by = "SUBJ")
+
+diagmodel = lmer(CHI_MLU.x ~ VISIT.x * Diagnosis.x + (1 + VISIT.x | SUBJ), doubletrain , REML = F)
+fixef(diagmodel)["Diagnosis.x"] <- -0.15
+
+powerCurveDiag = powerCurve(diagmodel, simr::fixed("Diagnosis.x", method = "t"),along="X.x", nsim=100)
 plot(powerCurveDiag)
 powerCurveDiag
+#NOT DONE
 
-powerCurveVisit = powerCurve(pow_model, simr::fixed("VISIT"),along="SUBJ", nsim=100)
+powerCurveVisit = powerCurve(pow_model, simr::fixed("VISIT", method = "t"), along="SUBJ", nsim=1000)
 plot(powerCurveVisit)
 powerCurveVisit
+#done: 62 participants
 
-powerCurveInter = powerCurve(pow_model, simr::fixed("VISIT:Diagnosis"),along="SUBJ", nsim=100)
+powerCurveInter = powerCurve(pow_model, simr::fixed("VISIT:Diagnosis", method = "t"),along="SUBJ", nsim=1000)
 plot(powerCurveInter)
 powerCurveInter
+#done: 24 participants
 
 
 ```
