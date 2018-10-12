@@ -2,7 +2,9 @@
 title: "Assignment 1 - Language Development in ASD - part 4"
 author: "Riccardo Fusaroli"
 date: "August 10, 2017"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 
@@ -105,7 +107,7 @@ summary(pow_model)
 
 #- [GitHub] assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
 
-```{r, include=echo}
+```{r, echo=TRUE}
 
 powerCurveDiag = powerCurve(pow_model, simr::fixed("Diagnosis", method = "t"),along="SUBJ", nsim=1000)
 plot(powerCurveDiag)
@@ -137,7 +139,7 @@ To find an effect size of 0.2 of the interaction effect of visit and diagnosis w
 #Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why.
 
 
-```{r, include=echo}
+```{r, echo=TRUE}
 
 thirtykids <-powerCurve(pow_model, simr::fixed('VISIT:Diagnosis', method='t'),along = 'SUBJ', nsim = 100, breaks= c(15:30))
 plot(thirtykids)
