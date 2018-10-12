@@ -29,7 +29,6 @@ Hint: There is some information in the filenames that you might need.
 
 - Extract "standard" descriptors of pitch: Mean, standard deviation, range
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
-- Extract "complex" descriptors: recurrence quantification analysis
 
 2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
 - Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)

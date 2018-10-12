@@ -24,12 +24,31 @@ N.B. There are looots of files to be dealt with. Maybe too many for your compute
 - You can coordinate with classmates.
 
 Hint: There is some information in the filenames that you might need.
+Hint: It might be a good idea to first create a function which loads and parses one file, and then loop through the list of files to read them all. For example
+
+```{r}
+read_pitch <- function(filename) {
+    # read data
+    # parse filename
+    # extract descriptors
+    # combine all this data
+    return(data)
+}
+
+# test it on just one file while writing the function
+test_data = read_pitch("Pitch/a_file_to_test.txt")
+
+# when you've created a function that works, you can
+pitch_data = list.files("Pitch/*") %>%
+    purrr::map_df(read_pitch)
+write_csv(pitch_data, ...)
+```
+
 
 1. In the course of this assignment you have to first select one datafile and figure out how to:
 
 - Extract "standard" descriptors of pitch: Mean, standard deviation, range
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
-- Extract "complex" descriptors: recurrence quantification analysis
 
 2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
 - Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
