@@ -46,6 +46,14 @@ Hint: There is some information in the filenames that you might need.
 Hint: It might be a good idea to first create a function which loads and parses one file, and then loop through the list of files to read them all. For example
 
 
+1. In the course of this assignment you have to first select one datafile and figure out how to:
+
+- Extract "standard" descriptors of pitch: Mean, standard deviation, range
+- Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
+
+2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
+- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+
 ```{r}
 
 setwd("~/Studygroup/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/")
@@ -90,22 +98,21 @@ test_data = read_pitch("Study1D0S101T1_f0.txt")
 pitch_data = list.files(path = path) %>%
     purrr::map_df(read_pitch)
 
-write_csv(pitch_data, path = path)
+write.csv(pitch_data, file = "THEA_pitch_data.csv")
+
 
 ```
 
 
-1. In the course of this assignment you have to first select one datafile and figure out how to:
-
-- Extract "standard" descriptors of pitch: Mean, standard deviation, range
-- Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
-
-2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
-- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+
+
+
+
+
 
 4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
 - Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
