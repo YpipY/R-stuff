@@ -114,14 +114,14 @@ write.csv(pitch_data, file = "THEA_pitch_data.csv")
 
 #mutate new colum with subject id AND diagnosis
 pitch_data <- pitch_data %>%
-  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = "_"))
+  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
 
 #mutate new colum with subject id AND diagnosis
 demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", 0, 1)
 
 demo <- demo %>%
-  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = "_"))
+  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
 
 #merging datafiles to obtain meta data
@@ -187,57 +187,70 @@ summary(MAD_model)
 #Maybe gather all the significant models/predictors and crossvalidate them??
 
 ```
+
+what
+
+
 ```{r}
 #cross validation --> so we do not have to go "throw"  out data in order to test on it 
 #make a cake and split it in 5 parts --> 5 folds 
 #use cross validation to find the best model without overfitting
 #put the kids in a random fold
 
+#all_pitch$Sub_Diag <- as.numeric(all_pitch$Sub_Diag)
 
-folds <- createFolds(unique(train_data$SUBJ), k = 5, list = TRUE) #create folds. Unique() puts each unique kid in a fold, so all data from one subj goes into one fold
+all_pitch <- all_pitch[complete.cases(all_pitch),]
+
+folds <- createFolds(unique(all_pitch$Sub_Diag), k=5, list = TRUE, returnTrain = FALSE) #create folds. Unique() puts each unique kid in a fold, so all data from one subj goes into one fold
 
 folds
-
-
-
 
 #now we need to create a loop, important to run through the empty lists before running  
 
 
-rmse_train_qua = NULL
+rmse_mean = NULL
 
-rmse_test_qua = NULL
+rmse_sd = NULL
 
-rmse_test_lin = NULL
-rmse_train_lin = NULL
-  
+rmse_q05 = NULL
+
+rmse_q25 = NULL
+
+rmse_median = NULL
+
+rmse_q75 = NULL
+
+rmse_95 = NULL
+
+rmse_iqr2575 = NULL
+
+rmse_coe.var = NULL
+
+rmse_MAD = NULL
+
 
 temp_test = NULL
 
 temp_train = NULL
 
 
-
 for (f in folds) {
   #divide into test and train
-  temp_test = filter(train_data, SUBJ %in% f) #could also have used train_data[f,]
-  temp_train = filter(train_data, ! SUBJ %in% f) #could also have used train_data[!f,]
+  temp_test = filter(all_pitch, Sub_Diag %in% f) #could also have used train_data[f,]
+  temp_train = filter(all_pitch, ! Sub_Diag %in% f) #could also have used train_data[!f,]
   
   #run models on train
-  lin_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT + I(VISIT^2)|SUBJ), data= temp_train, REML=FALSE)
-  qua_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=temp_train, REML=FALSE)
+  mean_model <- lmer(mean_f0 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
   
   #predict from the two models on both train and test data, train data does not really make sense --> just pedagogic 
-  lin_predict_test <- predict(lin_model, temp_test, allow.new.levels = TRUE)
-  qua_predict_test <- predict(qua_model, temp_test, allow.new.levels = TRUE)
- 
+  mean_predict <- predict(mean_model, temp_test, allow.new.levels = TRUE)
+
   #another approach would be to sum the predictions and then compare with the actual values --> our approach works for rmse, but in other cases you should average the predictions and not the rmse values 
   
   
   #get average error and put into list
-  rmse_test_lin <- c(rmse_test_lin, rmse(temp_test$CHI_MLU, lin_predict_test))
-  rmse_test_qua <- c( rmse_test_qua, rmse(temp_test$CHI_MLU, qua_predict_test))
-  
+  rmse_mean <- c(rmse_mean, rmse(temp_test$mean, mean_predict))
+
   
 }
 
