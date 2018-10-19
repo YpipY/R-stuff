@@ -1,0 +1,271 @@
+---
+title: "Assignment2_Part1_VoiceInSchizophrenia"
+author: "Riccardo Fusaroli"
+date: "July 17, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+setwd("/Users/signeklovekjaer/Documents/Cognitive Science/3. semester/Experimental methods 3/1. class/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo")
+
+library(tidyverse)
+library(ggplot2)
+library(lme4)
+library(dplyr)
+library(MuMIn)
+library(effects)
+library(Metrics)
+library(caret)
+library(simr)
+library(lmerTest)
+library(stringr)
+library(purrr)
+library(FinCal)
+
+demo <- read.delim(file = "DemoData.txt", sep = "")
+
+```
+
+## Assignment 2 - Part 1 - Assessing voice in schizophrenia
+
+Schizophrenia has been associated with "inappropriate" voice, sometimes monotone, sometimes croaky. A few studies indicate that pitch might be an index of schizophrenia. However, an ongoing meta-analysis of the literature (which you will have a go at in the last assignment) indicates that pitch mean and standard deviation are only weak indicators of diagnosis. Can we do better with our new fancy complex skills?
+
+The corpus you are asked to analyse is a set of voice recordings from people with schizophrenia (just after first diagnosis) and 1-1 matched controls (on gender, age, education). Each participant watched 10 videos of triangles moving across the screen and had to describe them (so you have circa 10 recordings per person). We have already extracted the pitch once every 10 milliseconds and you will have to use this data to assess differences in the voice.
+
+Can you characterize voice in schizophrenia as acoustically different? Report the methods you used to answer this question and the results from the analyses. Add a couple of lines trying to interpret the results (make sense of the difference). E.g. People with schizophrenia tend to have high-pitched voice, and present bigger swings in their prosody than controls. Add a couple of lines describing limitations of the data/analyses if any is relevant.
+
+
+N.B. There are looots of files to be dealt with. Maybe too many for your computer, depending on how you load the files. This is a challenge for you. Some (complementary) possible strategies:
+- You can select a subset of files only (and you have to justify your choice).
+- You can learn how to use the apply() or map() functions.
+- You can coordinate with classmates.
+
+Hint: There is some information in the filenames that you might need.
+Hint: It might be a good idea to first create a function which loads and parses one file, and then loop through the list of files to read them all. For example
+
+
+1. In the course of this assignment you have to first select one datafile and figure out how to:
+
+- Extract "standard" descriptors of pitch: Mean, standard deviation, range
+- Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
+
+2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
+- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+
+```{r}
+
+
+
+#setwd("/Users/signeklovekjaer/Documents/Cognitive Science/3. semester/Experimental methods 3/1. class/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/")
+
+path = "/Users/signeklovekjaer/Documents/Cognitive Science/3. semester/Experimental methods 3/1. class/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/"
+
+
+read_pitch <- function(filename) {
+    # read data
+  data <- read.delim(file = paste(path, filename, sep = ""), sep = "\t", header = TRUE) 
+    # parse filename
+  meta = str_extract_all(filename, "\\d+")
+  study = as.numeric(meta[[1]][1])
+  Diagnosis = as.numeric(meta[[1]][2])
+  Subject = as.numeric(meta [[1]][3])
+  triangles = as.numeric(meta[[1]][4])
+  
+    # extract descriptors
+  mean_f0 = mean(data$f0)
+  sd = sd(data$f0)
+  quantiles = quantile(data$f0, probs = c(0.05, 0.25, 0.50, 0.75, 0.95))
+  q05 = quantiles[[1]]
+  q25 = quantiles[[2]]
+  median = quantiles[[3]]
+  q75 = quantiles[[4]]
+  q95 = quantiles[[5]]
+  iqr2575 = q75-q25
+  coe.var = coefficient.variation(sd(data$f0), mean(data$f0))
+  MAD = mad(data$f0) #average distance from something...
+  
+    # combine all this data
+  output_list = data.frame(Subject, Diagnosis, study, triangles, mean_f0, sd, q05, q25, median, q75, q95, iqr2575, coe.var, MAD)
+  
+  return(output_list)
+}
+
+
+# test it on just one file while writing the function
+#test_data = read_pitch("Study1D0S101T1_f0.txt")
+
+# when you've created a function that works, you can
+pitch_data = list.files(path = path) %>%
+    purrr::map_df(read_pitch)
+
+write.csv(pitch_data, file = "THEA_pitch_data.csv")
+
+
+
+```
+
+
+```{r}
+
+#mutate new colum with subject id AND diagnosis
+pitch_data <- pitch_data %>%
+  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = "_"))
+
+
+#mutate new colum with subject id AND diagnosis
+demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", 0, 1)
+
+demo <- demo %>%
+  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = "_"))
+
+
+#merging datafiles to obtain meta data
+all_pitch <- full_join(demo, pitch_data, by = "Sub_Diag")
+
+
+```
+
+3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+
+3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+
+
+```{r}
+all_pitch <- subset(all_pitch, select = -c(Diagnosis.y, Triangles))
+
+#all_pitch <- na.omit(all_pitch)
+
+# mean_f0 = mean(data$f0)
+mean_model <- lmer(mean_f0 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(mean_model)
+
+# sd = sd(data$f0)
+sd_model <- lmer(sd ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(sd_model)
+
+# q05 = quantiles[[1]]
+q05_model <- lmer(q05 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(q05_model)
+
+# q25 = quantiles[[2]]
+q25_model <- lmer(q25 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(q25_model)
+
+# median = quantiles[[3]]
+median_model <- lmer(median ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(median_model)
+
+# q75 = quantiles[[4]]
+q75_model <- lmer(q75 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(q75_model)
+
+# q95 = quantiles[[5]]
+q95_model <- lmer(q95 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(q95_model)
+
+# iqr2575 = q75-q25
+iqr2575_model <- lmer(iqr2575 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(iqr2575_model)
+
+
+# coe.var = coefficient.variation(sd(data$f0), mean(data$f0))
+coe.var_model <- lmer(coe.var ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(coe.var_model)
+
+# MAD = mad(data$f0) #average distance from something...
+MAD_model <- lmer(MAD ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(MAD_model)
+
+
+
+#Maybe gather all the significant models/predictors and crossvalidate them??
+
+```
+```{r}
+#cross validation --> so we do not have to go "throw"  out data in order to test on it 
+#make a cake and split it in 5 parts --> 5 folds 
+#use cross validation to find the best model without overfitting
+#put the kids in a random fold
+
+
+folds <- createFolds(unique(train_data$SUBJ), k = 5, list = TRUE) #create folds. Unique() puts each unique kid in a fold, so all data from one subj goes into one fold
+
+folds
+
+
+
+
+#now we need to create a loop, important to run through the empty lists before running  
+
+
+rmse_train_qua = NULL
+
+rmse_test_qua = NULL
+
+rmse_test_lin = NULL
+rmse_train_lin = NULL
+  
+
+temp_test = NULL
+
+temp_train = NULL
+
+
+
+for (f in folds) {
+  #divide into test and train
+  temp_test = filter(train_data, SUBJ %in% f) #could also have used train_data[f,]
+  temp_train = filter(train_data, ! SUBJ %in% f) #could also have used train_data[!f,]
+  
+  #run models on train
+  lin_model <- lmer(CHI_MLU ~ Diagnosis * VISIT  + (1+VISIT + I(VISIT^2)|SUBJ), data= temp_train, REML=FALSE)
+  qua_model <- lmer(CHI_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=temp_train, REML=FALSE)
+  
+  #predict from the two models on both train and test data, train data does not really make sense --> just pedagogic 
+  lin_predict_test <- predict(lin_model, temp_test, allow.new.levels = TRUE)
+  qua_predict_test <- predict(qua_model, temp_test, allow.new.levels = TRUE)
+ 
+  #another approach would be to sum the predictions and then compare with the actual values --> our approach works for rmse, but in other cases you should average the predictions and not the rmse values 
+  
+  
+  #get average error and put into list
+  rmse_test_lin <- c(rmse_test_lin, rmse(temp_test$CHI_MLU, lin_predict_test))
+  rmse_test_qua <- c( rmse_test_qua, rmse(temp_test$CHI_MLU, qua_predict_test))
+  
+  
+}
+
+#rmse, errors for the linear model on the test data set
+ rmse_test_lin
+ 
+ rmse_test_qua
+ 
+ 
+ 
+
+mean(rmse_test_lin) #get the mean error across the folds for the linear model
+
+mean(rmse_test_qua) #get the mean error across the folds for the quadratic model
+
+
+```
+
+
+
+
+4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
+- Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
+
+5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
+
+6. Write a paragraph reporting methods and results
+
+[Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
+
+## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
