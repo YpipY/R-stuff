@@ -26,6 +26,7 @@ library(stringr)
 library(purrr)
 library(FinCal)
 
+setwd("~/Studygroup/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/")
 demo <- read.delim(file = "DemoData.txt", sep = "")
 
 ```
@@ -58,7 +59,7 @@ Hint: It might be a good idea to first create a function which loads and parses 
 
 ```{r}
 
-setwd("~/Studygroup/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/")
+
 
 path = "/Users/thearolskovsloth/Studygroup/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/"
 
@@ -74,7 +75,7 @@ read_pitch <- function(filename) {
   triangles = as.numeric(meta[[1]][4])
   
     # extract descriptors
-  mean_f0 = mean(data$f0)
+  mean_f0 = round(mean(data$f0), digits = 2)
   sd = sd(data$f0)
   quantiles = quantile(data$f0, probs = c(0.05, 0.25, 0.50, 0.75, 0.95))
   q05 = quantiles[[1]]
@@ -111,20 +112,29 @@ write.csv(pitch_data, file = "THEA_pitch_data.csv")
 
 #mutate new colum with subject id AND diagnosis
 pitch_data <- pitch_data %>%
-  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = "_"))
+  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
 
 #mutate new colum with subject id AND diagnosis
 demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", 0, 1)
 
 demo <- demo %>%
-  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = "_"))
+  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
 
 #merging datafiles to obtain meta data
 all_pitch <- full_join(demo, pitch_data, by = "Sub_Diag")
+#all_pitch <- subset(all_pitch, select = -c(Diagnosis.y, Triangles))
 
+all_pitch<-all_pitch[complete.cases(all_pitch),]
 all_pitch <- na.omit(all_pitch)
+
+# all_pitch$Diagnosis.x <- as.numeric(all_pitch$Diagnosis.x)
+# 
+# all_pitch <- all_pitch %>%
+#   mutate(Diag = ifelse(Diagnosis.x == 1, 1, 0))
+# 
+# all_pitch$Diag <- as.numeric(all_pitch$Diag)
 
 
 ```
@@ -137,36 +147,47 @@ all_pitch <- na.omit(all_pitch)
 
 ```{r}
 
+
 # mean_f0 = mean(data$f0)
-mean_model = lmer(Diagnosis ~ mean_f0 + Gender + Age + (1 + triangles | Sub_Diag), all_pitch, REML = F)
+mean_model <- lmer(mean_f0 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(mean_model)
 
 # sd = sd(data$f0)
-sd_model =
+sd_model <- lmer(sd ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(sd_model)
 
 # q05 = quantiles[[1]]
-q05_model = 
+q05_model <- lmer(q05 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(q05_model)
 
 # q25 = quantiles[[2]]
-q25_model = 
+q25_model <- lmer(q25 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(q25_model)
 
 # median = quantiles[[3]]
-median_model = 
+median_model <- lmer(median ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(median_model)
 
 # q75 = quantiles[[4]]
-q75_model =
+q75_model <- lmer(q75 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(q75_model)
 
 # q95 = quantiles[[5]]
-q95_model =
+q95_model <- lmer(q95 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(q95_model)
 
 # iqr2575 = q75-q25
-iqr2575_model
+iqr2575_model <- lmer(iqr2575 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(iqr2575_model)
+
 
 # coe.var = coefficient.variation(sd(data$f0), mean(data$f0))
-coe.var_model =
+coe.var_model <- lmer(coe.var ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(coe.var_model)
 
 # MAD = mad(data$f0) #average distance from something...
-MAD_model = 
+MAD_model <- lmer(MAD ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(MAD_model)
 
 
 
@@ -174,6 +195,71 @@ MAD_model =
 
 ```
 
+
+#Cross validation 
+```{r}
+
+#cross validation: the cake! fist split it in 5 parts. assigning the kids to random folds of the cake. createFolds splits the kids into the different folds. loop through each fold
+
+#basic model to compare
+
+#REMEMBER TO RUN THESE TO RESET LOOP
+
+all_pitch$Sub_Diag <- as.numeric(all_pitch$Sub_Diag)
+
+#empty lists
+rmse_mean = NULL
+rmse_sd = NULL
+rmse_q05 = NULL
+rmse_q25 = NULL
+rmse_median = NULL
+rmse_q75 = NULL
+rmse_95 = NULL
+rmse_iqr2575 = NULL
+rmse_coe.var = NULL
+rmse_MAD = NULL
+
+#create folds. devide by subject (only one subject). Avoid leakage of the model. 
+folds <- createFolds(unique(all_pitch$Sub_Diag), k=5, list = TRUE, returnTrain = FALSE)
+folds
+#loop
+for (f in folds) {
+  #seperate in cake pieces
+  temp_test = filter(all_pitch, Sub_Diag%in% f)
+  temp_train = filter(all_pitch, !Sub_Diag%in% f)
+  #other solution: data[f,] and data[!f,]
+  
+  #run training data through model
+  mean_model <- lmer(mean_f0 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # sd_model <- lmer(sd ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # q05_model <- lmer(q05 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # q25_model <- lmer(q25 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # median_model <- lmer(median ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # q75_model <- lmer(q75 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # q95_model <- lmer(q95 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # iqr2575_model <- lmer(iqr2575 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # coe.var_model <- lmer(coe.var ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  # MAD_model <- lmer(MAD ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+  
+  
+  #predict test data from the two models
+  pred_mean = predict(mean_model, temp_test, allow.new.levels =TRUE)
+  # pred_sd = predict(sd_model, temp_test, allow.new.levels =TRUE)
+  # pred_q05 = predict(q05_model, temp_test, allow.new.levels =TRUE)
+  
+  
+  #get average error for prediction model and concatenate to the empty list
+  rmse_mean = c(rmse_mean, rmse(temp_test$mean_f0, pred_mean))
+  
+  }
+
+
+#compare these tow numbers, as they indicate how well the model is trained to predict the test data
+mean(rmse_mean)
+
+mean(rmse_test_fancy)
+
+```
 
 
 
