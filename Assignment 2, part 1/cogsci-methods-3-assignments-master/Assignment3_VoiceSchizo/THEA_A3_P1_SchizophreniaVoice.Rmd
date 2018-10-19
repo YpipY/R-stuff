@@ -26,6 +26,8 @@ library(stringr)
 library(purrr)
 library(FinCal)
 
+demo <- read.delim(file = "DemoData.txt", sep = "")
+
 ```
 
 ## Assignment 2 - Part 1 - Assessing voice in schizophrenia
@@ -56,7 +58,7 @@ Hint: It might be a good idea to first create a function which loads and parses 
 
 ```{r}
 
-setwd("~/Studygroup/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/")
+setwd("~/Studygroup/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/")
 
 path = "/Users/thearolskovsloth/Studygroup/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/"
 
@@ -101,15 +103,76 @@ pitch_data = list.files(path = path) %>%
 write.csv(pitch_data, file = "THEA_pitch_data.csv")
 
 
+
 ```
 
 
+```{r}
+
+#mutate new colum with subject id AND diagnosis
+pitch_data <- pitch_data %>%
+  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = "_"))
+
+
+#mutate new colum with subject id AND diagnosis
+demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", 0, 1)
+
+demo <- demo %>%
+  mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = "_"))
+
+
+#merging datafiles to obtain meta data
+all_pitch <- full_join(demo, pitch_data, by = "Sub_Diag")
+
+all_pitch <- na.omit(all_pitch)
+
+
+```
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
 
 
+```{r}
+
+# mean_f0 = mean(data$f0)
+mean_model = lmer(Diagnosis ~ mean_f0 + Gender + Age + (1 + triangles | Sub_Diag), all_pitch, REML = F)
+summary(mean_model)
+
+# sd = sd(data$f0)
+sd_model =
+
+# q05 = quantiles[[1]]
+q05_model = 
+
+# q25 = quantiles[[2]]
+q25_model = 
+
+# median = quantiles[[3]]
+median_model = 
+
+# q75 = quantiles[[4]]
+q75_model =
+
+# q95 = quantiles[[5]]
+q95_model =
+
+# iqr2575 = q75-q25
+iqr2575_model
+
+# coe.var = coefficient.variation(sd(data$f0), mean(data$f0))
+coe.var_model =
+
+# MAD = mad(data$f0) #average distance from something...
+MAD_model = 
+
+
+
+#Maybe gather all the significant models/predictors and crossvalidate them??
+
+```
 
 
 
