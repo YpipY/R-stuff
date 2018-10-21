@@ -1,0 +1,112 @@
+---
+title: "Assignment2_Part1_VoiceInSchizophrenia"
+author: "Riccardo Fusaroli"
+date: "July 17, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Loading packages
+library(stringr)
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/")
+```
+
+## Assignment 2 - Part 1 - Assessing voice in schizophrenia
+
+Schizophrenia has been associated with "inappropriate" voice, sometimes monotone, sometimes croaky. A few studies indicate that pitch might be an index of schizophrenia. However, an ongoing meta-analysis of the literature (which you will have a go at in the last assignment) indicates that pitch mean and standard deviation are only weak indicators of diagnosis. Can we do better with our new fancy complex skills?
+
+The corpus you are asked to analyse is a set of voice recordings from people with schizophrenia (just after first diagnosis) and 1-1 matched controls (on gender, age, education). Each participant watched 10 videos of triangles moving across the screen and had to describe them (so you have circa 10 recordings per person). We have already extracted the pitch once every 10 milliseconds and you will have to use this data to assess differences in the voice.
+
+Can you characterize voice in schizophrenia as acoustically different? Report the methods you used to answer this question and the results from the analyses. Add a couple of lines trying to interpret the results (make sense of the difference). E.g. People with schizophrenia tend to have high-pitched voice, and present bigger swings in their prosody than controls. Add a couple of lines describing limitations of the data/analyses if any is relevant.
+
+
+N.B. There are looots of files to be dealt with. Maybe too many for your computer, depending on how you load the files. This is a challenge for you. Some (complementary) possible strategies:
+- You can select a subset of files only (and you have to justify your choice).
+- You can learn how to use the apply() or map() functions.
+- You can coordinate with classmates.
+
+Hint: There is some information in the filenames that you might need.
+Hint: It might be a good idea to first create a function which loads and parses one file, and then loop through the list of files to read them all. For example
+
+```{r}
+read_pitch <- function(filename) {
+    # read data
+    # parse filename
+    # extract descriptors
+    # combine all this data
+    return(data)
+}
+
+# test it on just one file while writing the function
+files <- list.files(path='Pitch/')
+files
+data <- data.frame(Study=numeric(),
+                Subject=numeric(),
+                 Diagnosis=numeric(),
+                Triangles=numeric(),
+                Mean=integer(),
+                SD=integer(),
+                Median=integer(),
+                '5%' =integer(),
+                '25%' =integer(),
+                '75%' =integer(),
+                '95%' =integer(),
+                 stringsAsFactors=FALSE)
+n=0
+
+for (i in files){
+  n<-n+1
+  #Extrating metadata
+  temp<-str_extract_all(i,'\\d+')
+  temp[[1]]<-as.numeric(temp[[1]])
+  data[n,1] <- temp[[1]][1]
+  data[n,2] <- temp[[1]][3]
+  data[n,3] <- temp[[1]][2]
+  data[n,4] <- temp[[1]][4]
+  #Extrating features
+  filepath<-paste('Pitch/', i, sep="")
+  temp2<- read.delim(filepath,sep='\t')
+  data[n,5] <- mean(temp2$f0)
+  data[n,6] <- sd(temp2$f0)
+  data[n,7] <- median(temp2$f0)
+  data[n,8] <- quantile(temp2$f0, probs=0.05)
+  data[n,9] <- quantile(temp2$f0, probs=0.25)
+  data[n,10] <- quantile(temp2$f0, probs=0.75)
+  data[n,11] <- quantile(temp2$f0, probs=0.95)
+}
+quantile(temp2$f0, probs=0.05)
+data[n,5] <- mean(temp2$f0)
+mean<-mean(temp2$f0)
+data[n,5] <- mean
+mean(temp2$f0)
+
+# when you've created a function that works, you can
+pitch_data = list.files("Pitch/*") %>%
+    purrr::map_df(read_pitch)
+write_csv(pitch_data, ...)
+```
+
+
+1. In the course of this assignment you have to first select one datafile and figure out how to:
+
+- Extract "standard" descriptors of pitch: Mean, standard deviation, range
+- Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
+
+2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
+- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+
+3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+
+4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
+- Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
+
+5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
+
+6. Write a paragraph reporting methods and results
+
+[Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
+
+## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
