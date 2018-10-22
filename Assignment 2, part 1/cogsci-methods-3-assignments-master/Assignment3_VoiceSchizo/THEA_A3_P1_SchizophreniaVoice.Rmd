@@ -2,7 +2,9 @@
 title: "Assignment2_Part1_VoiceInSchizophrenia"
 author: "Riccardo Fusaroli"
 date: "July 17, 2016"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -10,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r}
+```{r, include=FALSE}
 
 library(tidyverse)
 library(ggplot2)
