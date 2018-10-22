@@ -119,14 +119,30 @@ demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", 0, 1)
 demo <- demo %>%
   mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
+demo1 <- subset(demo, select = -c (SANS, SAPS, Social, NegLang, PosLang, Lang, Triangles, Alogia, FlatAffect, Asociality))
+
 
 #merging datafiles in order to obtain the meta-data: gender, age, etc.
-all_pitch <- full_join(demo, pitch_data, by = "Sub_Diag")
+all_pitch <- full_join(demo1, pitch_data, by = "Sub_Diag")
 
 #removing NA's
 all_pitch <- na.omit(all_pitch)
 
+all_pitch$Diagnosis.x <- as.factor(all_pitch$Diagnosis.x)
+
 ```
+
+
+```{r, echo=TRUE}
+#lets plot!
+ggplot(all_pitch, aes(x= Diagnosis.x, y = Age, fill = Diagnosis.x)) +
+  geom_boxplot() + 
+  facet_wrap(~Study) + 
+  scale_fill_manual(values=c("goldenrod1","dodgerblue")) +
+  labs(x= "Study", y = "Age")
+
+```
+
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
@@ -365,16 +381,15 @@ lmer(acoustic_feature ~ Diagnosis + Gender + (1| Subject) + (1| triangles))
 
 These models showed that Diagnosis is a significant predictor for:
 
-mean (β=15.73 (SE= 4.75), t = 3.31, p<.05)
-q05 (β= 21.07 (SE= 5.04), t = 4.18, p<.05)
-q25 (β= 18.89 (SE= 4.92), t = 3.84 , p<.05)
-median (β= 12.60 (SE= 4.78), t = 2.64 , p<.05)
-q75 (β= 13.00 (SE= 5.15), t = 2.53 , p<.05)
-q95 (β= 16.40 (SE= 7.57), t = 2.17 , p<.05)
-coe.var (β= -0.05 (SE= 0.02), t = -3.18 , p<.05)
-MAD (β= -5.30 (SE= 1.52), t = -3.48 , p<.05)
+mean (β=13.36 (SE= 4.26), t = 3.14, p<.05)
+q05 (β= 18.68 (SE= 4.55), t = 4.09, p<.05)
+q25 (β= 16.40 (SE= 4.47), t = 3.67 , p<.05)
+median (β= 11.29 (SE= 4.26), t = 2.65 , p<.05)
+q75 (β= 10.98 (SE= 4.53), t = 2.42 , p<.05)
+coe.var (β= -0.05 (SE= 0.01), t = -3.57 , p<.05)
+MAD (β= -4.52 (SE= 1.28), t = -3.53 , p<.05)
 
-Diagnosis was not a significant predictor for: sd and inter quantile range from q75 - q25.
+Diagnosis was not a significant predictor for: sd, q95 and inter quantile range from q75 - q25.
 
 The fixed effects was diagnosis as we wanted to test its axplanatory ability on pitch. Furthermore, Gender was included as a fixed effect. This was because we expect Gender to have a systematic influence on pitch, since males generally have a lower pitched voice than females.
 
@@ -386,27 +401,32 @@ The results of the cross validations were:
 
 acoustic feature      mean rmse value
 
-mean                  36.47
-sd                    27.38
-q05                   39.22
-q25                   39.91
-median                34.87
-q75                   50.16
-q95                   68.83
-iqr2575               51.20
-coe.var               0.14
-MAD                   14.72
+mean                  35.30
+sd                    25.82
+q05                   38.08
+q25                   38.65
+median                33.06
+q75                   46.53
+q95                   67.58
+iqr2575               45.80
+coe.var               0.13
+MAD                   13.85
 
 From this we can evaluate that the error is smallest in the models predicting coe.var and MAD.
+#CONCLUDE SOMETHING
 
 
-Testing if study is a significant predictor we included study as a fixed effect in the models. 
+When testing if study is a significant predictor, we included study as a fixed effect in the models.
+Then the models looked like this:
+lmer(acoustic_feature ~ Diagnosis + Study + Gender + (1| Sub_Diag) + (1| triangles))
 
+None of these were significant. 
 
+Neither were the interaction of study:
+lmer(acoustic_feature ~ Diagnosis*Study + Gender + (1| Sub_Diag) + (1| triangles))
 
+The fact that Study is not a significant predictor is a good thing. If it had in fact been signficant would have indicated that there had been some systematic difference in how the experiment was conducted across the studies. 
+If there had been an interaction of study and diagnosis, it would have indicated that the study had a different effect on controls and schizophrenia patients. 
 
-
-
-[Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
 
 ## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
