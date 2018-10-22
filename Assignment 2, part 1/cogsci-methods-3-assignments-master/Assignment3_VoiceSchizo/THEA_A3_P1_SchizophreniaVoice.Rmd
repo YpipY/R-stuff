@@ -59,11 +59,10 @@ Hint: It might be a good idea to first create a function which loads and parses 
 
 ```{r}
 
-
-
+#define pathway to pitch folder
 path = "/Users/thearolskovsloth/Studygroup/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/"
 
-
+#create function that extracts descriptors from pitch files
 read_pitch <- function(filename) {
     # read data
   data <- read.delim(file = paste(path, filename, sep = ""), sep = "\t", header = TRUE) 
@@ -97,82 +96,68 @@ read_pitch <- function(filename) {
 # test it on just one file while writing the function
 test_data = read_pitch("Study1D0S101T1_f0.txt")
 
-# when you've created a function that works, you can
+# run through all pitch data files
 pitch_data = list.files(path = path) %>%
     purrr::map_df(read_pitch)
 
+#write a csv file with combined data
 write.csv(pitch_data, file = "THEA_pitch_data.csv")
-
 
 
 ```
 
 
-```{r}
+```{r, include=FALSE}
 
-#mutate new colum with subject id AND diagnosis
+#mutate new colum with subject id AND diagnosis to distinguish between subjects with and without schizophrenia
 pitch_data <- pitch_data %>%
   mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
-
-#mutate new colum with subject id AND diagnosis
+#mutate new colum with renamed diagnosis from demo-data
 demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", 0, 1)
 
 demo <- demo %>%
   mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
 
-#merging datafiles to obtain meta data
+#merging datafiles in order to obtain the meta-data: gender, age, etc.
 all_pitch <- full_join(demo, pitch_data, by = "Sub_Diag")
-#all_pitch <- subset(all_pitch, select = -c(Diagnosis.y, Triangles))
 
-all_pitch<-all_pitch[complete.cases(all_pitch),]
+#removing NA's
 all_pitch <- na.omit(all_pitch)
-
-# all_pitch$Diagnosis.x <- as.numeric(all_pitch$Diagnosis.x)
-# 
-# all_pitch <- all_pitch %>%
-#   mutate(Diag = ifelse(Diagnosis.x == 1, 1, 0))
-# 
-# all_pitch$Diag <- as.numeric(all_pitch$Diag)
-
 
 ```
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 
-3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+```{r, include=FALSE}
 
-
-```{r}
-
-
-# mean_f0 = mean(data$f0)
+# mean_f0
 mean_model <- lmer(mean_f0 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(mean_model)
 
-# sd = sd(data$f0)
+# sd 
 sd_model <- lmer(sd ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(sd_model)
 
-# q05 = quantiles[[1]]
+# q05 
 q05_model <- lmer(q05 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(q05_model)
 
-# q25 = quantiles[[2]]
+# q25
 q25_model <- lmer(q25 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(q25_model)
 
-# median = quantiles[[3]]
+# median
 median_model <- lmer(median ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(median_model)
 
-# q75 = quantiles[[4]]
+# q75 
 q75_model <- lmer(q75 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(q75_model)
 
-# q95 = quantiles[[5]]
+# q95 
 q95_model <- lmer(q95 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(q95_model)
 
@@ -180,49 +165,43 @@ summary(q95_model)
 iqr2575_model <- lmer(iqr2575 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(iqr2575_model)
 
-
-# coe.var = coefficient.variation(sd(data$f0), mean(data$f0))
+# coe.var 
 coe.var_model <- lmer(coe.var ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(coe.var_model)
 
-# MAD = mad(data$f0) #average distance from something...
+# MAD 
 MAD_model <- lmer(MAD ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
 summary(MAD_model)
 
 
-
-#Maybe gather all the significant models/predictors and crossvalidate them??
-
 ```
 
-
 #Cross validation 
-```{r}
+```{r, include=FALSE}
 
-#cross validation: the cake! fist split it in 5 parts. assigning the kids to random folds of the cake. createFolds splits the kids into the different folds. loop through each fold
-
-#basic model to compare
-
-#REMEMBER TO RUN THESE TO RESET LOOP
-
+#making the column numeric
 all_pitch$Sub_Diag <- as.numeric(all_pitch$Sub_Diag)
 
-#empty lists
+#create empty lists
 rmse_mean = NULL
 rmse_sd = NULL
 rmse_q05 = NULL
 rmse_q25 = NULL
 rmse_median = NULL
 rmse_q75 = NULL
-rmse_95 = NULL
+rmse_q95 = NULL
 rmse_iqr2575 = NULL
 rmse_coe.var = NULL
 rmse_MAD = NULL
 
-#create folds. devide by subject (only one subject). Avoid leakage of the model. 
+#create 5 folds 
 folds <- createFolds(unique(all_pitch$Sub_Diag), k=5, list = TRUE, returnTrain = FALSE)
+folds<-lapply(folds, function(x) unique(all_pitch$Sub_Diag)[x]) #to rename them what they are actually called in the data
 folds
-#loop
+
+
+#create loop to cross validate the root mean square error of the models
+
 for (f in folds) {
   #seperate in cake pieces
   temp_test = filter(all_pitch, Sub_Diag%in% f)
@@ -230,45 +209,203 @@ for (f in folds) {
   #other solution: data[f,] and data[!f,]
   
   #run training data through model
-  mean_model <- lmer(mean_f0 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # sd_model <- lmer(sd ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # q05_model <- lmer(q05 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # q25_model <- lmer(q25 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # median_model <- lmer(median ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # q75_model <- lmer(q75 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # q95_model <- lmer(q95 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # iqr2575_model <- lmer(iqr2575 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # coe.var_model <- lmer(coe.var ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  # MAD_model <- lmer(MAD ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
-  
+  mean_model <- lmer(mean_f0 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  sd_model <- lmer(sd ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  q05_model <- lmer(q05 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  q25_model <- lmer(q25 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  median_model <- lmer(median ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  q75_model <- lmer(q75 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  q95_model <- lmer(q95 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  iqr2575_model <- lmer(iqr2575 ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  coe.var_model <- lmer(coe.var ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
+  MAD_model <- lmer(MAD ~ Diagnosis.x + Gender + (1| Sub_Diag) + (1| triangles), temp_train, REML = F)
   
   #predict test data from the two models
   pred_mean = predict(mean_model, temp_test, allow.new.levels =TRUE)
-  # pred_sd = predict(sd_model, temp_test, allow.new.levels =TRUE)
-  # pred_q05 = predict(q05_model, temp_test, allow.new.levels =TRUE)
-  
+  pred_sd = predict(sd_model, temp_test, allow.new.levels =TRUE)
+  pred_q05 = predict(q05_model, temp_test, allow.new.levels =TRUE)
+  pred_q25 = predict(q25_model, temp_test, allow.new.levels =TRUE)
+  pred_median = predict(median_model, temp_test, allow.new.levels =TRUE)
+  pred_q75 = predict(q75_model, temp_test, allow.new.levels =TRUE)
+  pred_q95 = predict(q95_model, temp_test, allow.new.levels =TRUE)
+  pred_iqr2575 = predict(iqr2575_model, temp_test, allow.new.levels =TRUE)
+  pred_coe.var = predict(coe.var_model, temp_test, allow.new.levels =TRUE)
+  pred_MAD = predict(MAD_model, temp_test, allow.new.levels =TRUE)
+
   
   #get average error for prediction model and concatenate to the empty list
   rmse_mean = c(rmse_mean, rmse(temp_test$mean_f0, pred_mean))
+  rmse_sd = c(rmse_sd, rmse(temp_test$sd, pred_sd))
+  rmse_q05 = c(rmse_q05, rmse(temp_test$q05, pred_q05))
+  rmse_q25 = c(rmse_q25, rmse(temp_test$q25, pred_q25))
+  rmse_median <- c(rmse_median, rmse(temp_test$median, pred_median))
+  rmse_q75 = c(rmse_q75, rmse(temp_test$q75, pred_q75))
+  rmse_q95 = c(rmse_q95, rmse(temp_test$q95, pred_q95))
+  rmse_iqr2575 = c(rmse_iqr2575, rmse(temp_test$iqr2575, pred_iqr2575))
+  rmse_coe.var = c(rmse_coe.var, rmse(temp_test$coe.var, pred_coe.var))
+  rmse_MAD = c(rmse_MAD, rmse(temp_test$MAD, pred_MAD))
   
   }
 
-
-#compare these tow numbers, as they indicate how well the model is trained to predict the test data
+#compare these numbers, as they indicate how well the model is trained to predict the test data
 mean(rmse_mean)
+mean(rmse_sd)
+mean(rmse_q05)
+mean(rmse_q25)
+mean(rmse_median)
+mean(rmse_q75)
+mean(rmse_q95)
+mean(rmse_iqr2575)
+mean(rmse_coe.var)
+mean(rmse_MAD)
 
-mean(rmse_test_fancy)
 
 ```
 
 
+3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+```{r, include=FALSE}
+#include "study"
 
-4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
-- Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
+# mean_f0
+study_mean_model <- lmer(mean_f0 ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_mean_model)
 
-5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
+# sd 
+study_sd_model <- lmer(sd ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_sd_model)
+
+# q05 
+study_q05_model <- lmer(q05 ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_q05_model)
+
+# q25
+study_q25_model <- lmer(q25 ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_q25_model)
+
+# median
+study_median_model <- lmer(median ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_median_model)
+
+# q75 
+study_q75_model <- lmer(q75 ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_q75_model)
+
+# q95 
+study_q95_model <- lmer(q95 ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_q95_model)
+
+# iqr2575 = q75-q25
+study_iqr2575_model <- lmer(iqr2575 ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_iqr2575_model)
+
+# coe.var 
+study_coe.var_model <- lmer(coe.var ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_coe.var_model)
+
+# MAD 
+study_MAD_model <- lmer(MAD ~ Diagnosis.x + Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(study_MAD_model)
+
+
+
+# INTERACTION OF STUDY #
+
+# mean_f0
+int_study_mean_model <- lmer(mean_f0 ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_mean_model)
+
+# sd 
+int_study_sd_model <- lmer(sd ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_sd_model)
+
+# q05 
+int_study_q05_model <- lmer(q05 ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_q05_model)
+
+# q25
+int_study_q25_model <- lmer(q25 ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_q25_model)
+
+# median 
+int_study_median_model <- lmer(median ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_median_model)
+
+# q75 
+int_study_q75_model <- lmer(q75 ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_q75_model)
+
+# q95 
+int_study_q95_model <- lmer(q95 ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_q95_model)
+
+# iqr2575
+int_study_iqr2575_model <- lmer(iqr2575 ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_iqr2575_model)
+
+
+# coe.var 
+int_study_coe.var_model <- lmer(coe.var ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_coe.var_model)
+
+# MAD 
+int_study_MAD_model <- lmer(MAD ~ Diagnosis.x*Study + Gender + (1| Sub_Diag) + (1| triangles), all_pitch, REML = F)
+summary(int_study_MAD_model)
+
+
+
+```
 
 6. Write a paragraph reporting methods and results
+
+We created a model for each acoustic feature.
+The standard model was: 
+
+lmer(acoustic_feature ~ Diagnosis + Gender + (1| Subject) + (1| triangles))
+
+These models showed that Diagnosis is a significant predictor for:
+
+mean (β=15.73 (SE= 4.75), t = 3.31, p<.05)
+q05 (β= 21.07 (SE= 5.04), t = 4.18, p<.05)
+q25 (β= 18.89 (SE= 4.92), t = 3.84 , p<.05)
+median (β= 12.60 (SE= 4.78), t = 2.64 , p<.05)
+q75 (β= 13.00 (SE= 5.15), t = 2.53 , p<.05)
+q95 (β= 16.40 (SE= 7.57), t = 2.17 , p<.05)
+coe.var (β= -0.05 (SE= 0.02), t = -3.18 , p<.05)
+MAD (β= -5.30 (SE= 1.52), t = -3.48 , p<.05)
+
+Diagnosis was not a significant predictor for: sd and inter quantile range from q75 - q25.
+
+The fixed effects was diagnosis as we wanted to test its axplanatory ability on pitch. Furthermore, Gender was included as a fixed effect. This was because we expect Gender to have a systematic influence on pitch, since males generally have a lower pitched voice than females.
+
+The random effects was Subject as a random intercept, so we allow for subjects to have a different base level of pitch. Also, we included Triangles as a random intercept, to allow for the different videos of triangles to provoke different levels in the acoustic features.
+
+
+To assess the different acoustic features we ran a 5 fold cross-validation of all the models. This was done in order to compare the predictive abilities of the different models with a root mean square error measure. 
+The results of the cross validations were: 
+
+acoustic feature      mean rmse value
+
+mean                  36.47
+sd                    27.38
+q05                   39.22
+q25                   39.91
+median                34.87
+q75                   50.16
+q95                   68.83
+iqr2575               51.20
+coe.var               0.14
+MAD                   14.72
+
+From this we can evaluate that the error is smallest in the models predicting coe.var and MAD.
+
+
+Testing if study is a significant predictor we included study as a fixed effect in the models. 
+
+
+
+
+
 
 [Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
 
