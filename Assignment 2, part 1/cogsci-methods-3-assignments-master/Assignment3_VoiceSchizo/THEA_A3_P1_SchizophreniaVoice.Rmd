@@ -4,6 +4,7 @@ author: "Riccardo Fusaroli"
 date: "July 17, 2016"
 output:
   word_document: default
+  pdf_document: default
   html_document: default
 ---
 
@@ -51,12 +52,12 @@ Hint: There is some information in the filenames that you might need.
 Hint: It might be a good idea to first create a function which loads and parses one file, and then loop through the list of files to read them all. For example
 
 
-1. In the course of this assignment you have to first select one datafile and figure out how to:
+#1. In the course of this assignment you have to first select one datafile and figure out how to:
 
 - Extract "standard" descriptors of pitch: Mean, standard deviation, range
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
 
-2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
+#2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
 - Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
 
 ```{r}
@@ -121,7 +122,7 @@ demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", 0, 1)
 demo <- demo %>%
   mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
-demo1 <- subset(demo, select = -c (SANS, SAPS, Social, NegLang, PosLang, Lang, Triangles, Alogia, FlatAffect, Asociality))
+demo1 <- subset(demo, select = -c (SANS, SAPS, Social, NegLang, PosLang, Lang, Triangles, Alogia, FlatAffect, Asociality)) #excluding the columns that are not of use and full of NA's...
 
 
 #merging datafiles in order to obtain the meta-data: gender, age, etc.
@@ -146,7 +147,7 @@ ggplot(all_pitch, aes(x= Diagnosis.x, y = Age, fill = Diagnosis.x)) +
 ```
 
 
-3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+#3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 
 ```{r, include=FALSE}
@@ -263,6 +264,18 @@ for (f in folds) {
   rmse_coe.var = c(rmse_coe.var, rmse(temp_test$coe.var, pred_coe.var))
   rmse_MAD = c(rmse_MAD, rmse(temp_test$MAD, pred_MAD))
   
+#calculate the standardized value
+  sd_rmse_mean = rmse_mean/sd(temp_test$mean_f0)
+  sd_rmse_sd = rmse_sd/sd(temp_test$sd)
+  sd_rmse_q05 = rmse_q05/sd(temp_test$q05)
+  sd_rmse_q25 = rmse_q25/sd(temp_test$q25)
+  sd_rmse_median = rmse_median/sd(temp_test$median)
+  sd_rmse_q75 = rmse_q75/sd(temp_test$q75)
+  sd_rmse_q95 = rmse_q95/sd(temp_test$q95)
+  sd_rmse_iqr2575 = rmse_iqr2575/sd(temp_test$iqr2575)
+  sd_rmse_coe.var = rmse_coe.var/sd(temp_test$coe.var)
+  sd_rmse_MAD = rmse_MAD/sd(temp_test$MAD)
+  
   }
 
 #compare these numbers, as they indicate how well the model is trained to predict the test data
@@ -278,10 +291,23 @@ mean(rmse_coe.var)
 mean(rmse_MAD)
 
 
+#to get the standard
+mean(sd_rmse_mean)
+mean(sd_rmse_sd)
+mean(sd_rmse_q05)
+mean(sd_rmse_q25)
+mean(sd_rmse_median)
+mean(sd_rmse_q75)
+mean(sd_rmse_q95)
+mean(sd_rmse_iqr2575)
+mean(sd_rmse_coe.var)
+mean(sd_rmse_MAD)
+
+
 ```
 
 
-3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+#3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
 ```{r, include=FALSE}
 #include "study"
 
@@ -374,7 +400,7 @@ summary(int_study_MAD_model)
 
 ```
 
-6. Write a paragraph reporting methods and results
+#6. Write a paragraph reporting methods and results
 
 We created a model for each acoustic feature.
 The standard model was: 
@@ -384,11 +410,17 @@ lmer(acoustic_feature ~ Diagnosis + Gender + (1| Subject) + (1| triangles))
 These models showed that Diagnosis is a significant predictor for:
 
 mean (β=13.36 (SE= 4.26), t = 3.14, p<.05)
+
 q05 (β= 18.68 (SE= 4.55), t = 4.09, p<.05)
+
 q25 (β= 16.40 (SE= 4.47), t = 3.67 , p<.05)
+
 median (β= 11.29 (SE= 4.26), t = 2.65 , p<.05)
+
 q75 (β= 10.98 (SE= 4.53), t = 2.42 , p<.05)
+
 coe.var (β= -0.05 (SE= 0.01), t = -3.57 , p<.05)
+
 MAD (β= -4.52 (SE= 1.28), t = -3.53 , p<.05)
 
 Diagnosis was not a significant predictor for: sd, q95 and inter quantile range q75-q25.
@@ -402,21 +434,35 @@ The random effects was Subject as a random intercept, so we allow for subjects t
 To assess the different acoustic features we ran a 5 fold cross-validation of all the models. This was done in order to compare the predictive abilities of the different models with a root mean square error measure. 
 The results of the cross validations were: 
 
-acoustic feature      mean rmse value
+acoustic feature      mean rmse value       standardized: mean rmse value/sd in percent
 
-mean                  35.30
-sd                    25.82
-q05                   38.08
-q25                   38.65
-median                33.06
-q75                   46.53
-q95                   67.58
-iqr2575               45.80
-coe.var               0.13
-MAD                   13.85
+mean                  36.09                 63.21 %
 
-From this we can evaluate that the error is smallest in the models predicting coe.var and MAD.
-#CONCLUDE SOMETHING
+sd                    25.97                 98.41 % 
+
+q05                   38.17                 72.86 %
+
+q25                   38.82                 71.35 %
+
+median                33.92                 63.86 %
+
+q75                   48.09                 68.95 %
+
+q95                   70.31                 81.49 %
+
+iqr2575               45.05                 93.39 %
+
+coe.var               0.13                  107.92 %
+
+MAD                   13.30                 109.12 %
+
+
+The third column in the table is the calculated standardized measure of the models' predictive abilities. The calculations were done by taking the mean rmse value for the acoustic features and deviding them by the standard deviation of for that particular acoustic feature. This is done becasue we want to compare the error across different types of data with different units. Thereby, we get a standardized measure: the percentage from the standard deviation. Thus, the lower value, the better the model is at predicting. 
+
+If we look at the rmse value for the median_model, then the rmse value is 33.92. In order to get the standardized measure we divide by the standard deviation of that acoustic feature (the variance around the mean). If the rmse value is lower than the sd value, we will get a standardized value below 1. If the sd value and the rmse value is the same, it would indicate that the error of the model is identical to the variance just present in the data. A good model should therefore have a lower error than the variance around the mean (sd). 
+
+From this we can evaluate that the error is smallest in the models predicting median and mean.
+
 
 
 When testing if study is a significant predictor, we included study as a fixed effect in the models.
@@ -431,7 +477,7 @@ lmer(acoustic_feature ~ Diagnosis*Study + Gender + (1| Sub_Diag) + (1| triangles
 The fact that Study is not a significant predictor is a good thing. If it had in fact been signficant would have indicated that there had been some systematic difference in how the experiment was conducted across the studies. 
 If there had been an interaction of study and diagnosis, it would have indicated that the study had a different effect on controls and schizophrenia patients. 
 
-#Maybe we should have checked assumptions????? Probably.... 
+Maybe we should have checked assumptions?? Probably.........
 
 
 ## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
