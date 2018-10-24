@@ -115,7 +115,7 @@ write.csv(pitch_data, file = "THEA_pitch_data.csv")
 pitch_data <- pitch_data %>%
   mutate(Sub_Diag = str_c(Subject, Diagnosis, sep = ""))
 
-#mutate new colum with renamed diagnosis from demo-data
+#renamed diagnosis from demo-data
 demo$Diagnosis <- ifelse(demo$Diagnosis == "Control", 0, 1)
 
 demo <- demo %>%
@@ -136,7 +136,7 @@ all_pitch$Diagnosis.x <- as.factor(all_pitch$Diagnosis.x)
 
 
 ```{r, echo=TRUE}
-#lets plot!
+#lets plot the data!
 ggplot(all_pitch, aes(x= Diagnosis.x, y = Age, fill = Diagnosis.x)) +
   geom_boxplot() + 
   facet_wrap(~Study) + 
@@ -391,7 +391,8 @@ q75 (β= 10.98 (SE= 4.53), t = 2.42 , p<.05)
 coe.var (β= -0.05 (SE= 0.01), t = -3.57 , p<.05)
 MAD (β= -4.52 (SE= 1.28), t = -3.53 , p<.05)
 
-Diagnosis was not a significant predictor for: sd, q95 and inter quantile range from q75 - q25.
+Diagnosis was not a significant predictor for: sd, q95 and inter quantile range q75-q25.
+
 
 The fixed effects was diagnosis as we wanted to test its axplanatory ability on pitch. Furthermore, Gender was included as a fixed effect. This was because we expect Gender to have a systematic influence on pitch, since males generally have a lower pitched voice than females.
 
@@ -424,11 +425,13 @@ lmer(acoustic_feature ~ Diagnosis + Study + Gender + (1| Sub_Diag) + (1| triangl
 
 None of these were significant. 
 
-Neither were the interaction of study:
+Neither was the interaction of study:
 lmer(acoustic_feature ~ Diagnosis*Study + Gender + (1| Sub_Diag) + (1| triangles))
 
 The fact that Study is not a significant predictor is a good thing. If it had in fact been signficant would have indicated that there had been some systematic difference in how the experiment was conducted across the studies. 
 If there had been an interaction of study and diagnosis, it would have indicated that the study had a different effect on controls and schizophrenia patients. 
+
+#Maybe we should have checked assumptions????? Probably.... 
 
 
 ## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
