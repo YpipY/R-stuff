@@ -1,7 +1,7 @@
 ---
 title: "Assignment2_Part1_VoiceInSchizophrenia"
-author: "Riccardo Fusaroli"
-date: "July 17, 2016"
+author: "Simon Møller Nielsen"
+date: "24/10 2018"
 output: html_document
 ---
 
@@ -93,6 +93,8 @@ pitchDataC<-filter(pitchData, Diagnosis=='Control')
 pitchDataS<-filter(pitchData, Diagnosis=='Schizophrenia')
 pitchDataS$Subject<-pitchDataS$Subject+1000
 pitchData<-rbind(pitchDataC, pitchDataS)
+
+table(pitchData$Diagnosis)
 
 # Saving the data
 write.csv(pitchData, file = "SimonPitchData.csv")
