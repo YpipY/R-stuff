@@ -1,0 +1,191 @@
+---
+title: "Assignment 3 - Part 2 - Diagnosing Schizophrenia from Voice"
+author: "Riccardo Fusaroli"
+date: "October 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Assignment 3 - Diagnosing schizophrenia from voice
+
+In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
+In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
+
+### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
+
+Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
+
+Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
+
+Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be t cdsaasfweaked: you need to calculate these new performance measures.
+
+N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
+N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
+N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
+
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(lme4)
+library(dplyr)
+library(MuMIn)
+library(effects)
+library(Metrics)
+library(caret)
+library(simr)
+library(lmerTest)
+library(stringr)
+library(purrr)
+library(FinCal)
+
+
+schi_data <- read.csv("schizoAcousticData.csv")
+
+#need to convert subject back so minus 100
+schi_data$Subject <- ifelse(schi_data$Diagnosis == 0, schi_data$Subject-1000, schi_data$Subject)
+
+
+
+#rescale variables into z-scores 
+
+as.vector(schi_data$qr95)
+
+scale(schi_data$qr_95, center = TRUE, scale = FALSE)
+
+schi_data$qr95 - mean(schi_data$qr95) / sd(schi_data$qr95)
+
+
+schi_data <- mutate(schi_data, z_qr95 = scale(schi_data$qr_95, center = TRUE))
+
+ scale(A, center = TRUE, scale = FALSE)
+
+schi_data <- mutate(schi_data, z_qr95 = qr95 - mean(qr95) / sd(qr95))
+
+#rescale variables with either min/max or z-scales 
+#an assumption when making the models is that the continious models are on a somewhat similar scale, so if one variable is on a scale from 0 to 1000 and another variable on a scale from 1 to 3
+
+#z-scale - substract the mean and divide by the standard deviation
+
+
+#important to convert it back when you want to interpret it 
+
+```
+
+
+```{r}
+
+#model from pitch range only
+range_model <- glmer(Diagnosis ~ qr95 + Gender + (1| Subject) + (1| Triangle), schi_data, family = "binomial")
+
+#lets plot the data
+ggplot(schi_data, aes(qr95,Diagnosis,colour=Diagnosis)) + geom_point() + theme_classic()
+
+#does not really look like it's a good predictor 
+```
+
+```{r}
+#predict to test accuracy
+schi_data$logodds_range <- predict(range_model, schi_data, allow.new.levels = TRUE)
+
+schi_data$logodds_range #they are in log odds 
+#so for every 
+
+#get the probablities (it's in percent)
+schi_data$prob_range <- inv.logit(schi_data$logodds_range)
+
+#use decision rule
+schi_data$prob_range[schi_data$prob_range > 0.5 ] = 1
+schi_data$prob_range[schi_data$prob_range <= 0.5 ] = 0
+
+#make sure it's in factors
+schi_data$prob_range <- as.factor(schi_data$prob_range)
+schi_data$Diagnosis <- as.factor(schi_data$Diagnosis)
+
+#make a confusion matrix to get performance measures
+confusionMatrix(schi_data$prob_range, reference = schi_data$Diagnosis)
+
+```
+```{r}
+#cross validation 
+#use lapply function, 
+
+#schi_data <- schi_data[complete.cases(schi_data),]
+
+folds <- createFolds(unique(schi_data$Subject), k=5, list = TRUE, returnTrain = FALSE) #create folds. Unique() puts each unique kid in a fold, so all data from one subj goes into one fold
+
+folds <-lapply(folds, function(x) unique(schi_data$Subject)[x])
+
+folds
+
+range_probabilities = NULL
+
+range_probabilities_decision = NULL
+
+for (f in folds) {
+  #divide into test and train
+  temp_test = filter(schi_data, Subject %in% f) #could also have used train_data[f,]
+  temp_train = filter(schi_data, ! Subject %in% f) #could also have used train_data[!f,]
+  
+  #run model on training data
+  range_model <- glmer(Diagnosis ~ qr95 + Gender + (1| Subject) + (1| Triangle), temp_train, family = "binomial", REML = F)
+  
+  #make predictions on test data, you get log odds
+  range_prediction = predict(range_model, temp_test, allow.new.levels = TRUE)
+  
+  #get it in probabilities 
+  range_probabilities = inv.logit(range_prediction)
+  
+  #use decision rules, if more than fifty percent diagnose as schizofrenic, if less diagnose as control
+  range_probabilities_decision[range_probabilities > 0.5] = 1
+  range_probabilities_decision[range_probabilities <= 0.5] = 0
+  
+  
+  #want to save all predictions 
+  if(!is.null)
+  
+  
+
+  
+  }
+
+
+#make a confusion matrix to get performance measures
+confusionMatrix(schi_data$prob_range, reference = schi_data$Diagnosis)
+
+#create confusion matrix 
+  confusionMatrix(as.factor(range_probabilities_decision), reference = as.factor(temp_test$Diagnosis))
+
+```
+
+LOOK AT ROC CURVE 
+TO GET THE SPECIFIC CUT OFF --> CHANGE THIS IN THE MODEL
+
+
+
+### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
+
+### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
+
+Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
+
+Remember:
+- Out-of-sample error crucial to build the best model!
+- After choosing the model, send Malte and Riccardo the code of your model
+
+### Question 4: Properly report the results
+
+METHODS SECTION: how did you analyse the data? That is, how did you extract the data, designed the models and compared their performance?
+
+RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
+
+### Bonus question 5
+
+You have some additional bonus data involving speech rate, pauses, etc. Include them in your analysis. Do they improve classification?
+
+### Bonus question 6
+
+Logistic regression is only one of many classification algorithms. Try using others and compare performance. Some examples: Discriminant Function, Random Forest, Support Vector Machine, etc. The package caret provides them.
