@@ -45,11 +45,11 @@ model = glmer(Diagnosis ~ z.qr95 + (1|Triangle) + (1|Subject), family = "binomia
 summary(model)
 
 #creating extra columns with all features z-scored 
-for (f in features){
+for (f in features){ #loop that runs through the list of features and paste it into the calculation
   eval(parse(text = paste("data$z.",f," = (data$",f," - mean(na.omit(data$",f,"))) / sd(na.omit(data$",f,"))", sep="")))
 }
 
-#making list with z-scored feature names
+#making list with z-scored feature names for later use
 zfeatures = c(colnames(data)[32:41],"z.qr95")
 
 #add a column with predictions in the unit "probabilities" (with inv.logit)
@@ -101,7 +101,7 @@ for (f in folds) {
   
   test$predictions = inv.logit(predict(tempModel, newdata = test, allow.new.levels=TRUE))
 
-  # Creating the full dataframe of predictions (can also be done like this: predictions[data$Subject %in% f] = test$predictions, need to create emtpy vector in before loop, like this predictions = rep(NA, nrow(data)))
+  # Creating the full dataframe of predictions (can also be done like this: "predictions[data$Subject %in% f] = test$predictions", need to create emtpy vector before loop, like this "predictions = rep(NA, nrow(data))")
   if (!is.null(testSet)){
     testSet = rbind(testSet,test)
   } else {
@@ -109,13 +109,15 @@ for (f in folds) {
   }  
 }
 
+#set threshold for diagnosing at 0.5 and change label
 testSet$predictions[testSet$predictions > 0.5] = "Schizo"
 testSet$predictions[testSet$predictions <= 0.5] = "Control"
 
+#align labels of diagnosis
 testSet$Diagnosis[testSet$Diagnosis == 1] = "Schizo"
 testSet$Diagnosis[testSet$Diagnosis == 0] = "Control"
 
-
+#create confusion matrix to get performance measures
 confusionMatrix(data = as.factor(testSet$predictions), reference = as.factor(testSet$Diagnosis), positive = "Schizo")
 
 ```
@@ -128,24 +130,26 @@ N.B. Now you have two levels of structure: subject and study. Should this impact
 ### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
 
 ```{r}
+#make diagnosis numeric again
 data$Diagnosis[data$Diagnosis == "Schizo"] = 1
 data$Diagnosis[data$Diagnosis == "Control"] = 0
 data$Diagnosis = as.numeric(data$Diagnosis)
 
-
+#cross validate the models (one for each acoustic predictor)
 folds = createFolds(y = unique(data$Subject), k=5, list = TRUE, returnTrain = FALSE)
 folds = lapply(folds, function(x) unique(data$Subject)[x])
-testSet = NULL
+testSet = NULL 
 for (f in folds) {
   test = filter(data, Subject %in% f)
   train = filter(data, !Subject %in% f)
   
-  for (zf in zfeatures) {
+  for (zf in zfeatures) { #loop that runs through the list of z.features  
     eval(parse(text=paste('tempModel = glmer(Diagnosis ~ ',zf,' + (1|Subject) + (1|Triangle), family = "binomial",data = train)', sep='' )))
     eval(parse(text=paste('test$pred',zf,' = inv.logit(predict(tempModel, newdata = test, allow.new.levels=TRUE))',sep='' )))
-    eval(parse(text=paste('test$pred',zf,'[test$pred',zf,' > 0.5] = "Schizo"',  sep='')))
+    eval(parse(text=paste('test$pred',zf,'[test$pred',zf,' > 0.5] = "Schizo"',  sep=''))) #set threshold
     eval(parse(text=paste('test$pred',zf,'[test$pred',zf,' <= 0.5] = "Control"',sep='')))
   }
+  
   # Creating the full dataframe of predictions
   if (!is.null(testSet)){
     testSet = rbind(testSet,test)
@@ -154,15 +158,17 @@ for (f in folds) {
   }  
 }
 
+#change labels for diagnosis
 testSet$Diagnosis[testSet$Diagnosis == 1] = "Schizo"
 testSet$Diagnosis[testSet$Diagnosis == 0] = "Control"
-for (zf in zfeatures){
+
+#make confusion matrix to get performance measures
+for (zf in zfeatures){ #loop that runs through all the z.features 
   eval(parse(text=paste('matrix = confusionMatrix(data = as.factor(testSet$pred',zf,'), reference = as.factor(testSet$Diagnosis), positive = "Schizo")',sep = '')))
-  print(paste(zf,"has an accuracy of:",round(matrix$overall[1],3)))
+  print(paste(zf,"has an accuracy of:",round(matrix$overall[1],3))) #print the accuracy score for all the models
 }
 
 
-#
 
 ```
 
