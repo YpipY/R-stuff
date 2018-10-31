@@ -15,7 +15,6 @@ library(boot)
 library(ROCR)
 library(pROC)
 library(tidyverse)
-install.packages('FinCal') 
 library(FinCal)
 
 setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/part 2")
