@@ -1,7 +1,7 @@
 ---
 title: "Assignment 3 - Part 2 - Diagnosing Schizophrenia from Voice"
 author: "Simon Møller Nielsen"
-date: "28-10 2018"
+date: "31-10 2018" #Spooky c:
 output: html_document
 ---
 
@@ -14,6 +14,9 @@ library(caret)
 library(boot)
 library(ROCR)
 library(pROC)
+library(tidyverse)
+install.packages('FinCal') 
+library(FinCal)
 
 setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/part 2")
 ```
@@ -354,37 +357,91 @@ Now it's time to go wild! Use all (voice-related) variables and interactions you
 Remember:
 - Out-of-sample error crucial to build the best model!
 - After choosing the model, send Malte and Riccardo the code of your model
+```{r Loading extra predictors, include=FALSE}
+Articulation<-read.csv('Articulation.txt') 
+pitchFull<-merge(Articulation,pitchData)
+
+#z-scoreing the data
+pitchFull$nsyll<-(pitchFull$nsyll-mean(pitchFull$nsyll))/sd(pitchFull$nsyll)
+pitchFull$npause<-(pitchFull$npause-mean(pitchFull$npause))/sd(pitchFull$npause)
+pitchFull$dur..s.<-(pitchFull$dur..s.-mean(pitchFull$dur..s.))/sd(pitchFull$dur..s.)
+pitchFull$phonationtime..s.<-(pitchFull$phonationtime..s.-mean(pitchFull$phonationtime..s.))/sd(pitchFull$phonationtime..s.)
+pitchFull$speechrate..nsyll.dur.<-(pitchFull$speechrate..nsyll.dur.-mean(pitchFull$speechrate..nsyll.dur.))/sd(pitchFull$speechrate..nsyll.dur.)
+pitchFull$articulation.rate..nsyll...phonationtime.<-(pitchFull$articulation.rate..nsyll...phonationtime.-mean(pitchFull$articulation.rate..nsyll...phonationtime.))/sd(pitchFull$articulation.rate..nsyll...phonationtime.)
+pitchFull$ASD..speakingtime.nsyll.<-(pitchFull$ASD..speakingtime.nsyll.-mean(pitchFull$ASD..speakingtime.nsyll.))/sd(pitchFull$ASD..speakingtime.nsyll.)
+```
+
 ```{r Best model, include=FALSE}
-# See Laurits Code for loop of the different models  
-Folds<-createFolds(unique(pitchData$Subject), k=5, list=T, returnTrain=F)
-Folds<-lapply(Folds, function(x) unique(pitchData$Subject)[x])
+# Loop to try and find the best model, courtesy mostly of Laurits
 
-n=0
+# Setting up the right dataframe names
+fullData<-pitchFull
+fullData$Diagnosis<- as.character(fullData$Diagnosis)
 
-predictors<- rep(NA, nrow(pitchData))
+# Defining possible variables, choose which normalization (z-score or min/max)
+#variables <- c('m.iqr2575','m.sd','m.MAD','m.coe.var','m.npause','m.dur..s.')
+variables <- c('Mean','SD','Range','Median','npause','dur..s.')
+signs = list(c("+","*"))
 
-for (i in Folds) {
-  n=n+1
-  trainFold = filter(pitchData, !Subject %in% i)
-  testFold = filter(pitchData, Subject %in% i)
-  rangeModel = glmer(Diagnosis ~ Range + Median + SD + (1|Subject) + (1|Triangles), data= trainFold, family="binomial")
-  
-  pTest <- inv.logit(predict(rangeModel, newdata = testFold, allow.new.levels=TRUE))
-  
-  predictors[pitchData$Subject %in% i] = pTest
+models = data.frame(matrix(ncol=4),nrow=0)
+colnames(models) = c("variables", "accuracy", "sensi", "speci","AUC")
+folds = createFolds(y = unique(fullData$Subject), k=5, list = TRUE, returnTrain = FALSE)
+folds = lapply(folds, function(x) unique(fullData$Subject)[x])
+# Creating a powerset (set of all possible subsets) for the permutations
+PowerSet <- powerSet(variables)
+for (set in PowerSet[2:length(PowerSet)]) {
+  # Reformating the set
+  if (length(set)==1) {
+    collapsed = paste(set)
+  } else {
+    currentSet = c()
+    for (e in set) {
+      currentSet <- c(e,currentSet) }
+    
+    signsCombs = expand.grid(rep(signs, length(currentSet)-1))
+    
+    for (row in seq(1,nrow(signsCombs))){
+      combined = c(currentSet[1])
+      
+      for (col in seq(2,length(currentSet))) {
+        sign = as.character(signsCombs[row,col-1])
+        combined = c(combined,sign,currentSet[col])
+      }
+      collapsed = paste(combined, collapse ="")
+      print(collapsed)
+      # Creating the command in string format
+      testParsing <- paste('glmer(Diagnosis ~ ',collapsed,' + (1|Subject) + (1|Triangles), data = train, family = "binomial")',sep = '')
+      predictors = rep(NA, nrow(fullData))
+      # CV folds
+      for (f in folds) {
+        test = filter(fullData, Subject %in% f)
+        train = filter(fullData, !Subject %in% f)
+        # Training the model
+        ERR <<- FALSE
+        
+        tryCatch ({model = eval(parse(text=testParsing))},
+        error=function(err){ERR <<- TRUE; print ("Not Converged")}) 
+        if (ERR) {
+          break
+        } 
+        # Creating predictions
+        predictors[fullData$Subject %in% f] = as.numeric(inv.logit(predict(model, newdata = test, allow.new.levels=TRUE)))
+      }
+      if (!ERR) {
+        predictors = as.numeric(predictors)
+        rocCurve <- roc(response = fullData$Diagnosis, predictor = predictors)
+        fullData$Predictors = predictors
+        
+        dat = aggregate(fullData[,"Predictors"],list(fullData$Subject,fullData$Diagnosis),mean,na.rm=TRUE)
+
+        colnames(dat) = c("Subject","Diagnosis","Predictors")
+        dat$Predictors = ifelse(dat$Predictors > 0.5, 1, 0)
+        matrix = confusionMatrix(data = as.factor(dat$Predictors), reference = as.factor(dat$Diagnosis),positive = "1")
+        models = rbind(models, c(collapsed,matrix$overall[1],matrix$byClass[1],matrix$byClass[2],auc(rocCurve)))
+      }
+    }
+  }
 }
-
-# Making ROC curve
-rocCurve <- roc(response = pitchData$Diagnosis, predictor= predictors)
-auc(rocCurve)
-ci(rocCurve)
-plot(rocCurve, legacy.axes=TRUE)
-
-# Checking the predictions
-predictors[predictors > 0.5] = "Schizophrenia"
-predictors[predictors <= 0.5] = "Control"
-
-confusionMatrix(data = as.factor(predictors), reference = as.factor(pitchData$Diagnosis), positive = "Schizophrenia")
 ```
 
 ### Question 4: Properly report the results
@@ -414,7 +471,7 @@ Range has the best PPV, meaning correctly predicted schizophrenic out of all sch
 SD has the best NPV, meaning correctly predicted controls out of all controls
 SD has most area under the ROC cruve. This is an overall measure of how good the Sensitivity and Specificity are.
 
-Best model to come
+As for the best model, we tried to run a bunch of combinations through a loop, including the extra data for the articulation data set like number of pauses and lenght of pauses, however, we found that most of the model had an accuracy of around 0.6 or below.  
 
 ### Bonus question 5
 
