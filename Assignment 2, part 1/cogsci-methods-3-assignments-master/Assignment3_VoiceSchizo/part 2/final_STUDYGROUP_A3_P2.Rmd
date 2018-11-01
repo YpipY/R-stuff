@@ -419,6 +419,15 @@ In conclusion, Diagnosis cannot be predicted from acoustic features from voice p
 However, the sensitivity of the model however is rather high ~.80. This assures that there is a good chance that if a subject is scizophrenic, this subject will actually get the diagnosis; shizophrenic.
 
 
+The best model:
+glmer(duration of pause * number of pause + coe.var * MAD * iqr2575 + (1 | Subject) + (1 | Triangle))
+
+
+
+
+
+
+
 ### Bonus question 5
 
 You have some additional bonus data involving speech rate, pauses, etc. Include them in your analysis. Do they improve classification?
