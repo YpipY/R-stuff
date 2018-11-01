@@ -415,13 +415,18 @@ QUESTION 3
 
 ###RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
 
-In conclusion, Diagnosis cannot be predicted from acoustic features from voice pitch nor pause. Since none of the model perform better than an accuracy of ~ .60.
+We have chosen the 4 most significant features from previous analysis: inter quartile range .25-.75, sd, MAD,
+coefficient of variance. Furthermore, 2 variables from the additional data (Articulation): number of pauses and pause duration. 
+These we ran thorugh a loop, checking all the possible combinations of predictors, thus creating different models and assessing their accucary, sensibility, specificity, and area under the ROC-curve. We pooled every model's predictions for each participant ending up with a single prediction for each participant (and not for each datapoint).
+
+In conclusion, Diagnosis cannot be predicted from acoustic features from voice pitch nor pause. Since none of the model perform better than an accuracy of ~ .65.
 However, the sensitivity of the model however is rather high ~.80. This assures that there is a good chance that if a subject is scizophrenic, this subject will actually get the diagnosis; shizophrenic.
 
+The best model was the following: 
 
-The best model:
 glmer(duration of pause * number of pause + coe.var * MAD * iqr2575 + (1 | Subject) + (1 | Triangle))
 
+This model has an accuracy of ??
 
 
 
