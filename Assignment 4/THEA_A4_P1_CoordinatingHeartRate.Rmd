@@ -11,6 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Analysing Heart Rate and Respiration data
 
+```{r}
+
+```
+
+
 The goal of this assignment is to first familiarize you with heart rate, and respiration data and their preprocessing. The second part explores how to analyze interpersonal coordination of these signals.
 
 These are the questions you need to be able to answer at the end of the assignment (aka that you need to submit as part of the portfolio)
