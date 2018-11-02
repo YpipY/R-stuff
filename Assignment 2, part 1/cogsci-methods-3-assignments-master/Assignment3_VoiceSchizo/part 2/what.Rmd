@@ -22,14 +22,6 @@ data$Subject = ifelse(data$Diagnosis==0, data$Subject-1000, data$Subject)
 #making list for feature names for later use
 features = colnames(data)[6:16]
 
-#creating extra columns with all features z-scored 
-for (f in features){ #loop that runs through the list of features and paste it into the calculation
-  eval(parse(text = paste("data$z.",f," = (data$",f," - mean(na.omit(data$",f,"))) / sd(na.omit(data$",f,"))", sep="")))
-}
-
-#making list with z-scored feature names for later use
-zfeatures = c(colnames(data)[32:41],"z.qr95")
-
 ```
 
 ## Assignment 3 - Diagnosing schizophrenia from voice
@@ -52,7 +44,13 @@ data$z.qr95 = (data$qr95 - mean(na.omit(data$qr95))) / sd(na.omit(data$qr95))
 model = glmer(Diagnosis ~ z.qr95 + (1|Triangle) + (1|Subject), family = "binomial",data = data)
 summary(model)
 
+#creating extra columns with all features z-scored 
+for (f in features){ #loop that runs through the list of features and paste it into the calculation
+  eval(parse(text = paste("data$z.",f," = (data$",f," - mean(na.omit(data$",f,"))) / sd(na.omit(data$",f,"))", sep="")))
+}
 
+#making list with z-scored feature names for later use
+zfeatures = c(colnames(data)[32:41],"z.qr95")
 
 #add a column with predictions in the unit "probabilities" (with inv.logit)
 data$predictions = inv.logit(predict(model, newdata = data, allow.new.levels=TRUE))
@@ -146,7 +144,7 @@ for (f in folds) {
   train = filter(data, !Subject %in% f)
   
   for (zf in zfeatures) { #loop that runs through the list of z.features  
-    eval(parse(text=paste('tempModel = glmer(Diagnosis ~ ',zf,' + (1|Subject) + (1|Triangle), family = "binomial",data = train)', sep='')))
+    eval(parse(text=paste('tempModel = glmer(Diagnosis ~ ',zf,' + (1|Subject) + (1|Triangle), family = "binomial",data = train)', sep='' )))
     eval(parse(text=paste('test$pred',zf,' = inv.logit(predict(tempModel, newdata = test, allow.new.levels=TRUE))',sep='' )))
     eval(parse(text=paste('test$pred',zf,'[test$pred',zf,' > 0.5] = "Schizo"',  sep=''))) #set threshold
     eval(parse(text=paste('test$pred',zf,'[test$pred',zf,' <= 0.5] = "Control"',sep='')))
@@ -164,7 +162,7 @@ for (f in folds) {
 testSet$Diagnosis[testSet$Diagnosis == 1] = "Schizo"
 testSet$Diagnosis[testSet$Diagnosis == 0] = "Control"
 
-#
+#make confusion matrix to get performance measures
 for (zf in zfeatures){ #loop that runs through all the z.features 
   eval(parse(text=paste('matrix = confusionMatrix(data = as.factor(testSet$pred',zf,'), reference = as.factor(testSet$Diagnosis), positive = "Schizo")',sep = '')))
   print(paste(zf,"has an accuracy of:",round(matrix$overall[1],3), "a sensitivity of:" ,round(matrix$byClass[1],3), "and a specificity of:", round(matrix$byClass[2], 3))) #print the accuracy score for all the models
@@ -175,7 +173,6 @@ for (zf in zfeatures){ #loop that runs through all the z.features
 ```
 
 
-
 ### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
 
 Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
@@ -183,10 +180,10 @@ Now it's time to go wild! Use all (voice-related) variables and interactions you
 Remember:
 - Out-of-sample error crucial to build the best model!
 - After choosing the model, send Malte and Riccardo the code of your model
-```{r}
+```{r, include=FALSE}
 read_pitch <- function(filename) {
     # read data
-  data <- read.delim(file = paste(windowsPath, filename, sep = ""), sep = "\t", header = TRUE) 
+  data <- read.delim(file = paste(path, filename, sep = ""), sep = "\t", header = TRUE) 
   soundname = filename
     # parse filename
   meta = str_extract_all(filename, "\\d+")
@@ -214,96 +211,62 @@ read_pitch <- function(filename) {
   return(output_list)
 }
 path = "/Users/lauritsdixen/R-stuff/Assignment 2/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/"
-windowsPath = "C:/Users/laurits/Desktop/cogsci-methods-3-assignments-master/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/"
 
-pitch_data = list.files(path = windowsPath) %>%
+pitch_data = list.files(path = path) %>%
     purrr::map_df(read_pitch)
 
 extra = read.delim("Articulation.txt", sep=",")
-extra$soundname = as.character(extra$soundname)
-pitch_data$soundname = str_replace(pitch_data$soundname,"_f0.txt","")
 
-fullData = full_join(pitch_data,extra)
-fullData = fullData[complete.cases(fullData[ , 1]),]
-
-newFeatures = c(colnames(fullData)[5:14],colnames(fullData)[16:22])
-
-for (f in newFeatures){
-  eval(parse(text = paste("fullData$z.",f," = (fullData$",f," - mean(na.omit(fullData$",f,"))) / sd(na.omit(fullData$",f,"))", sep="")))
-  eval(parse(text = paste("fullData$m.",f," = (fullData$",f,"-min(na.omit(fullData$",f,"))) /(max(na.omit(fullData$",f,"))-min(na.omit(fullData$",f,")))",sep="")))
-}
+fullData = full_join(pitch_data,extra, by = "soundname")
+class(pitch_data$soundname)
+class(extra$soundname)
 ```
 
 
-```{r}
+```{r, include=FALSE}
+
+#Some libraries for special functions
+library(rje)
+library(combinat)
+# Defining possible variables
+variables <- c('z.qr75','z.sd','z.MAD','z.CoefVar')
 
 
-# Defining possible variables, choose which normalization (z-score or min/max)
-#variables <- c('m.iqr2575','m.sd','m.MAD','m.coe.var','m.npause','m.dur..s.')
-variables <- c('z.iqr2575','z.sd','z.MAD','z.coe.var','z.npause','z.dur..s.')
-signs = list(c("+","*"))
+
 
 models = data.frame(matrix(ncol=4),nrow=0)
-colnames(models) = c("variables", "accuracy", "sensi", "speci","AUC")
-folds = createFolds(y = unique(fullData$Subject), k=5, list = TRUE, returnTrain = FALSE)
-folds = lapply(folds, function(x) unique(fullData$Subject)[x])
+colnames(models) = c("variables", "accuracy", "sensi", "speci")
+
+folds = createFolds(y = unique(data$Subject), k=5, list = TRUE, returnTrain = FALSE)
+folds = lapply(folds, function(x) unique(data$Subject)[x])
 # Creating a powerset (set of all possible subsets) for the permutations
 PowerSet <- powerSet(variables)
-for (set in PowerSet[2:length(PowerSet)]) {
+for (set in PowerSet[2:16]) {
   # Reformating the set
-  if (length(set)==1) {
-    collapsed = paste(set)
-  } else {
-    currentSet = c()
-    for (e in set) {
-      currentSet <- c(e,currentSet) }
-    
-    signsCombs = expand.grid(rep(signs, length(currentSet)-1))
-    
-    for (row in seq(1,nrow(signsCombs))){
-      combined = c(currentSet[1])
-      
-      for (col in seq(2,length(currentSet))) {
-        sign = as.character(signsCombs[row,col-1])
-        combined = c(combined,sign,currentSet[col])
-      }
-      collapsed = paste(combined, collapse ="")
-      print(collapsed)
-      # Creating the command in string format
-      testParsing <- paste('glmer(Diagnosis ~ ',collapsed,' + (1|Subject) + (1|triangles), data = train, family = "binomial")',sep = '')
-      predictors = rep(NA, nrow(fullData))
-      # CV folds
-      for (f in folds) {
-        test = filter(fullData, Subject %in% f)
-        train = filter(fullData, !Subject %in% f)
-        # Training the model
-        ERR <<- FALSE
-        
-        tryCatch ({model = eval(parse(text=testParsing))},
-        error=function(err){ERR <<- TRUE; print ("Not Converged")}) 
-        if (ERR) {
-          break
-        } 
-        # Creating predictions
-        predictors[fullData$Subject %in% f] = as.numeric(inv.logit(predict(model, newdata = test, allow.new.levels=TRUE)))
-      }
-      if (!ERR) {
-        predictors = as.numeric(predictors)
-        rocCurve <- roc(response = fullData$Diagnosis, predictor = predictors)
-        fullData$Predictors = predictors
-        
-        dat = aggregate(fullData[,"Predictors"],list(fullData$Subject,fullData$Diagnosis),mean,na.rm=TRUE)
-
-        colnames(dat) = c("Subject","Diagnosis","Predictors")
-        dat$Predictors = ifelse(dat$Predictors > 0.5, 1, 0)
-        matrix = confusionMatrix(data = as.factor(dat$Predictors), reference = as.factor(dat$Diagnosis),positive = "1")
-        models = rbind(models, c(collapsed,matrix$overall[1],matrix$byClass[1],matrix$byClass[2],auc(rocCurve)))
-      }
-    }
+  currentSet <- c()
+  for (e in set) {
+    currentSet <- c(e,currentSet) }
+  # Putting the variables in a string seperated by a '+'
+  collapsed <- paste(currentSet, collapse ="+")
+  print(collapsed)
+  # Creating the command in string format
+  testParsing <- paste('glmer(Diagnosis ~ ',collapsed,' + (1|Subject) + (1|Triangle), data = train, family = "binomial")',sep = '')
+  predictors = rep(NA, nrow(data))
+  # CV folds
+  for (f in folds) {
+    test = filter(data, Subject %in% f)
+    train = filter(data, !Subject %in% f)
+    # Training the model
+    model <- eval(parse(text=testParsing))
+    # Creating predictions
+    predictors[data$Subject %in% f] = as.numeric(inv.logit(predict(model, newdata = test, allow.new.levels=TRUE)))
+  }
+  predictors = as.numeric(predictors)
+  predictors = ifelse(predictors > 0.5, 1, 0)
+  matrix = confusionMatrix(data = as.factor(predictors), reference = as.factor(data$Diagnosis),positive = "1")
+  models = rbind(models, c(collapsed,matrix$overall[1],matrix$byClass[1],matrix$byClass[2]))
   }
 }
-
-
 ```
 
 
