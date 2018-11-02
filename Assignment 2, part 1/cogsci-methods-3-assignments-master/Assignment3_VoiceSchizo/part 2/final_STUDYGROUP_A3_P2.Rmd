@@ -181,6 +181,9 @@ Remember:
 - Out-of-sample error crucial to build the best model!
 - After choosing the model, send Malte and Riccardo the code of your model
 
+### Bonus question 5
+
+You have some additional bonus data involving speech rate, pauses, etc. Include them in your analysis. Do they improve classification?
 
 ```{r}
 
@@ -419,20 +422,14 @@ We have chosen the 4 most significant features from previous analysis: inter qua
 coefficient of variance. Furthermore, 2 variables from the additional data (Articulation): number of pauses and pause duration. 
 These we ran thorugh a loop, checking all the possible combinations of predictors, thus creating different models and assessing their accucary, sensibility, specificity, and area under the ROC-curve. We pooled every model's predictions for each participant ending up with a single prediction for each participant (and not for each datapoint).
 
-In conclusion, Diagnosis cannot be predicted from acoustic features from voice pitch nor pause. Since none of the model perform better than an accuracy of ~ .65.
-However, the sensitivity of the model however is rather high ~.80. This assures that there is a good chance that if a subject is scizophrenic, this subject will actually get the diagnosis; shizophrenic.
-
 The best model was the following: 
 
 glmer(duration of pause * number of pause + coe.var * MAD * iqr2575 + (1 | Subject) + (1 | Triangle))
 
-This model has an accuracy of ??
+This model has an accuracy of 0.66, specificity of 0.55, sensitivity of 0.76, and an area under the curve of 0.62.
 
 
+Top 5 models:
 
 
-
-
-### Bonus question 5
-
-You have some additional bonus data involving speech rate, pauses, etc. Include them in your analysis. Do they improve classification?
+In conclusion, Diagnosis cannot be predicted from acoustic features from voice pitch nor pause. Since none of the models perform better than an accuracy of ~ .65. However, the sensitivity of the model is rather high ~.75. This assures that there is a fair chance that if a subject is scizophrenic, this subject will actually get the diagnosis; shizophrenic. We evaluate that the accuracy is too low, due to the consequences of being or not being diagnosed with schizophrenia. Thus, we need a more accurate model to rely on to confidently diagnose schizophrenia from pitch and pause in speech. 
