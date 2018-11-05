@@ -1,0 +1,311 @@
+---
+title: "Assignment 4 - Coordinating Heart Rate"
+author: "Riccardo Fusaroli"
+date: "November 6, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analysing Heart Rate and Respiration data
+
+
+Data collection process
+- Goal of experiment --> how can we analyse coordination
+- The tasks: read out loud (at the same time, taking turns)
+- So difference between synchronous and turn-taking: for syn
+
+
+synchonized at the same time --> expect recurrence around the center line (will see blocks)
+
+Everyblack thing is a monement where the two trajectories are in the same place
+
+What counts as similar activation --> have to decide on threshold (the number is arbitrary)
+- The same threshold should be used for all participants
+- Need to rescale and center datapoints for all participants (have them on the same scale to be able to compare)
+
+What if there are big artefacts?? 
+- Exclude outliers by defining threshold (could look at quartiles, or some number * sd, Malte says use sd)
+- Need to plot the data --> do preprocessing --> plot the data (is everything okay)
+- What should we put instead of the excluded data? 
+- fit a cubic spline --> 200::na.spline --> important to plot it 
+- Possible to do the preprocessing in different ways --> save all of them --> do the analysis --> check whether the preprocessing affects the results
+
+Downsampling (too much data)
+- we have way more data than we need! --> computation time 
+- Take 100 datapoint, find the mean, take 100 data point, find the mean --> call it the mean of the timeinterval
+- find a sliding mean, take 200 and find mean, when slide 100, take 200 and find mean
+
+
+rqa
+- pick parameters
+    - lmax --> length of the longest line
+    - l --> the mean length of lines (do not count dots, but when there is two or more)
+    - RR --> recurrences (how many recurrences within the timeseries)
+    - trapping time, TT --> straight lines 
+    - Determinism, DET --> the ratio of all the recurrences, how many are part of a diaganol line
+    
+    
+In last question --> focus on L, RR; DET
+
+
+- run rqa
+- how do we analysis of the plot?
+- COmpare the two timeseries
+- Diagonal structures (follow each other in time)   
+    - Extract the length of the lines
+        - A lot of small lines after each other (could be due to noisy data, could be to the threshold)
+    - A short line in random places --> short intervals of synchronization
+
+Three ways to do statistical comparison:
+- Do a comparison(is there a difference between people who do synchronization and turn-taking in the parameters)
+
+- shuffle time series, to get a baseline (what we think is relevant is the order in time), use sample()
+    - run through rqa again 
+    
+- how do we know that there is something special about heartrates for this experiment (and not just similarity in heart rate, which is present at all times)
+    - shuffle across pairs, to get baseline, use grid.expand() to get every combination of participants
+    - run through rqa again
+
+
+
+
+
+Order:
+- Downsample
+- Remove outliers (cubic spline)
+
+
+
+The goal of this assignment is to first familiarize you with heart rate, and respiration data and their preprocessing. The second part explores how to analyze interpersonal coordination of these signals.
+
+These are the questions you need to be able to answer at the end of the assignment (aka that you need to submit as part of the portfolio)
+
+1) How do you preprocess heart rate and respiration data? Describe the process. If any data needs to be excluded, list the excluded data and motivate the exclusion.
+
+2) Do you observe interpersonal coordination in heart rate and respiration? Describe your control baseline, the method used to quantify coordination, and the statistical models used to infer whether coordination was higher than in the baseline. Report the results of the models.
+
+3) Do you observe differences in coordination between conditions? Report the models and results.
+
+4) Is respiration coordination a likely driver of heart rate coordination? Describe how you would test for it. Bonus points if you actually run the tests and report methods and results.
+
+N.B. Because of the timing, we're starting this exercise before collecting the data.
+Instead, you will develop your script this week on data from two years ago (Study1) and last year (Study2).
+When you hand in the assignment for feedback, you can use the old data. But when you hand in the final version for the exam, you need to adapt your script to use the data we collect next week in the lab.
+(For the old data): Note that synchronouns and turn-taking are the same task across both studies, but the third condition is different: two years ago it was self-paced joint reading; last year it was tv-series conversation.
+
+NB: For this exercise, you will need to do something very similiar to what you've done before spread over several weeks. Ie parse data, look at the plots, decide on data cleaning, build a model, and finally evaluate and interpret the results of the models. Going back and copying the approach from previous exercises will likely be a great help.
+
+## Step by step suggestions to solve the assignment
+
+### Exploring physiological signals
+
+- Choose one pair (one pair, three conditions)
+- Load the logs
+- Produce a plot of the participants' respiration signal and a different one of the participants' HR signal (for inspecting whether the data is usable)
+  N.B: remember the slides: artifacts, downsampling, scaling.
+  N.B. The gridExtra::grid.arrange() function allows you to display the plots side by side. E.g. grid.arrange(plot1, plot2, plot3, ncol=3)
+- Can you eye-ball which condition if any displays more physiological coordination?
+
+- Run crqa on heart rate and respiration data (find parameters, run crqa)
+- Does this tell you more than just eyeballing the plots?
+
+
+self-paced reading --> choose yourself how fast you are reading
+self-paced joined reading --> try to coordinate with each other 
+conversation --> natural talking
+turn-taking --> take turns reading a text outloud 
+
+```{r}
+#set working directory
+setwd("~/Documents/CognitiveScience/3.semester/Experimental methods 3/assignment 4/CleanData")
+
+#load libraries
+library(dplyr)
+library(groupdata2)
+library(ggplot2)
+library(tidyverse)
+```
+
+```{r}
+#choose one pair of participants from each condition
+data_selfPaced <- read.csv("Study1_G3_T1_SelfPaced.csv")
+data_turnTaking <- read.csv("Study1_G3_T2_TurnTaking.csv")
+data_sync <- read.csv("Study1_G3_T3_Synchronous.csv")
+
+
+#plot of the partipants heart rate data
+plot_HR_1 <- ggplot(data = data_selfPaced, aes(x = time)) +
+  geom_line(aes(y = HR1, colour = "HR1")) + 
+  geom_line(aes(y = HR2, colour = "HR2")) + labs(title = "Heart rate - Selfpaced")
+
+plot_HR_1
+
+plot_HR_2 <- ggplot(data = data_turnTaking, aes(x = time)) +
+  geom_line(aes(y = HR1, colour = "HR1")) + 
+  geom_line(aes(y = HR2, colour = "HR2")) + labs(title = "Heart rate - Turntaking")
+
+plot_HR_2
+
+plot_HR_3 <- ggplot(data = data_sync, aes(x = time)) +
+  geom_line(aes(y = HR1, colour = "HR1")) + 
+  geom_line(aes(y = HR2, colour = "HR2")) + labs(title = "Heart rate - Synchronous")
+
+plot_HR_3
+
+
+#looks like there are some outliers for participant 1  in condition 1 
+  
+
+#plot of the participants respiration data
+plot_Resp_1 <- ggplot(data = data_selfPaced, aes(x = time)) +
+  geom_line(aes(y = Resp1, colour = "Resp1")) + 
+  geom_line(aes(y = Resp2, colour = "Resp2")) + labs(title = "Respiration - Selfpaced")
+
+plot_Resp_1
+
+plot_Resp_2 <- ggplot(data = data_turnTaking, aes(x = time)) +
+  geom_line(aes(y = Resp1, colour = "Resp1")) + 
+  geom_line(aes(y = Resp2, colour = "Resp2")) + labs(title = "Respiration - Turntaking")
+
+plot_Resp_2
+
+plot_Resp_3 <- ggplot(data = data_sync, aes(x = time)) +
+  geom_line(aes(y = Resp1, colour = "Resp1")) + 
+  geom_line(aes(y = Resp2, colour = "Resp2")) + labs(title = "Respiration - Synchronous")
+
+plot_Resp_3
+
+
+```
+
+```{r}
+#downsample
+data1_down <- data_selfPaced %>%
+  group(n = 100, method = 'greedy') %>%
+  dplyr::summarise(
+    time = mean(time, na.rm = T),
+    HR1 = mean(HR1, na.rm = T),
+    HR2 = mean(HR2, na.rm = T), 
+    Resp1 = mean(Resp1, na.rm = T),
+    Resp2 = mean(Resp2, na.rm = T))
+
+data_turnTaking <- data_turnTaking %>%
+  group(n = 100, method = 'greedy') %>%
+  dplyr::summarise(
+    time = mean(time, na.rm = T),
+    HR1 = mean(HR1, na.rm = T),
+    HR2 = mean(HR2, na.rm = T), 
+    Resp1 = mean(Resp1, na.rm = T),
+    Resp2 = mean(Resp2, na.rm = T))
+
+
+data_sync <- data_sync%>%
+  group(n = 100, method = 'greedy') %>%
+  dplyr::summarise(
+    time = mean(time, na.rm = T),
+    HR1 = mean(HR1, na.rm = T),
+    HR2 = mean(HR2, na.rm = T), 
+    Resp1 = mean(Resp1, na.rm = T),
+    Resp2 = mean(Resp2, na.rm = T))
+
+
+  
+```
+
+
+```{r}
+#outlier removal 
+removeOuts <- function(ts,threshold) { 
+  ts[ts > (mean(ts,na.rm=T) + (threshold*sd(ts,na.rm=T))) | 
+       ts < (mean(ts,na.rm=T) - (threshold*sd(ts,na.rm=T)))] = mean(ts,na.rm=T) 
+  return(ts)
+  } #return timeseries
+
+#set threshold
+threshold = 2.5
+
+#
+
+
+#remove outliers for heart rate
+data1_down$HR1_out <- removeOuts(data1_down$HR1, threshold)
+data1_down$HR2_out <- removeOuts(data1_down$HR2, threshold)
+
+#remove outliers for respiration
+data1_down$Resp1_out <- removeOuts(data1_down$Resp1, threshold)
+data1_down$Resp2_out <- removeOuts(data1_down$Resp2, threshold)
+
+#plot it 
+plot_HR_out <- ggplot(data = data1_down, aes(x = time)) +
+  geom_line(aes(y = HR1_out, colour = "HR1_out")) + 
+  geom_line(aes(y = HR2_out, colour = "HR2_out")) #the outliers which we observed earlier are removed 
+
+
+#plot of the participants respiration data
+plot_Resp_out <- ggplot(data = data1_down, aes(x = time)) +
+  geom_line(aes(y = Resp1_out, colour = "Resp1_out")) + 
+  geom_line(aes(y = Resp2_out, colour = "Resp2_out"))
+
+```
+
+```{r}
+#scale the signals to be center them, so we can compare 
+data1_down$Resp1_out_s <- scale(data1_down$Resp1_out)
+
+data1_down$Resp2_out_s <- scale(data1_down$Resp2_out)
+
+data1_down$HR1_out_s <- scale(data1_down$HR1_out)
+
+data1_down$HR2_out_s <- scale(data1_down$HR2_out)
+
+
+#plot heart rate 
+plot_HR_out_s <- ggplot(data = data1_down, aes(x = time)) +
+  geom_line(aes(y = HR1_out_s, colour = "HR1_out_s")) + 
+  geom_line(aes(y = HR2_out_s, colour = "HR2_out_s")) #the outliers which we observed earlier are removed 
+
+
+#plot of the participants respiration data
+plot_Resp_out_s <- ggplot(data = data1_down, aes(x = time)) +
+  geom_line(aes(y = Resp1_out_s, colour = "Resp1_out_s")) + 
+  geom_line(aes(y = Resp2_out_s, colour = "Resp2_out_s"))
+
+```
+
+
+```{r}
+#plot all the heart rate plots together
+gridExtra::grid.arrange(plot_HR, plot_HR_out, plot_HR_out_s, ncol = 3)
+
+
+#plot all the respiration plots together
+gridExtra::grid.arrange(plot_Resp, plot_Resp_out, plot_Resp_out_s, ncol = 3,top="Data preparation in steps: Downsampling --> + removal of outliers -->  + scaling")
+```
+
+
+
+### Systematically pre-process the data
+- Loop through all the files (either with a loop or with a function), check which files should be excluded, if any, and save the pre-processed time-series. Tip: plot and visually inspect the data to figure out which should be excluded.
+- Run crqa on all the pre-processed time-series and save the output (don't forget to add columns with study, group, condition and trial). Tip: remember to first assess optimal parameters (dimensions, delay, radius) across all timeseries. Tip: it will often fail, just take whatever parameters you get, select optimal across timeseries parameters and run crqa on all timeseries with those. Tip: double check the rr. When I ran the loop, I got very low rr, so I adjusted the radius until the average of rr across all pairs was approx. 4%.
+
+### Creating controls: shuffled controls
+ - loop through all pairs and conditions
+ - shuffle the timeseries (take a timeseries and rearrange its values in a random order). Tip check the sample() function
+ - run crqa and save the output. NB. which delay, embed, radius parameters should you use?
+ - statistically compare the crqa indexes in real and shuffled pairs
+ 
+### TRICKY! Creating controls: surrogate pair controls
+ - Per each real pair, identify at least one surrogate pair (matching one of the participants, with somebody doing the same task, but in a different pair). Tip: Malte will share a method to do this on screen.
+ - Run crqa on all the surrogate pairs and save the output. NB. which delay, embed, radius parameters should you use?
+ - Test whether crqa shows a difference between real and surrogate pairs
+
+### Testing effects of conditions
+ - make a (probably underpowered) mixed model testing effects of the different conditions on heart rate and respiration coordination
+ - N.B: would it make sense to include surrogate pairs? and if so how? what would that tell you?
+
+### Effects of respiration coordination on heart rate coordination
+ - describe how you would test those.
+ - Optional: run the models and report them
