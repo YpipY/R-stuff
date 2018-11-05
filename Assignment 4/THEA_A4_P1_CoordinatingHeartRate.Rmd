@@ -374,11 +374,8 @@ gridExtra::grid.arrange(plot_Resp_out_s, plot_Resp_2, plot_Resp_3, ncol = 3,top=
 
 
 ### Systematically pre-process the data
-- Loop through all the files (either with a loop or with a function), check which files should be excluded, if any, and save the pre-processed time-series. Tip: plot and visually inspect the data to figure out which should be excluded.
 
-- Run crqa on all the pre-processed time-series and save the output (don't forget to add columns with study, group, condition and trial). Tip: remember to first assess optimal parameters (dimensions, delay, radius) across all timeseries. Tip: it will often fail, just take whatever parameters you get, select optimal across timeseries parameters and run crqa on all timeseries with those. Tip: double check the rr. When I ran the loop, I got very low rr, so I adjusted the radius until the average of rr across all pairs was approx. 4%.
-
-
+#visually eyeballing which files to exclude....
 
 ```{r}
 
@@ -436,6 +433,58 @@ G1_T1: exclude Resp1
 G1_T2: exclude Resp1
 G2_T1: exclude Resp2
 G2_T2: exclude Resp2
+
+
+- Loop through all the files (either with a loop or with a function), check which files should be excluded, if any, and save the pre-processed time-series. Tip: plot and visually inspect the data to figure out which should be excluded.
+
+```{r}
+
+
+
+prep <- function(filename) {
+  #read data
+  data <- read.csv(file = paste(path, filename, sep = ""), sep = ",", header = TRUE)
+  
+  #downsample
+  down = NULL 
+  
+  down <- data %>%
+    group(n = 100, method = 'greedy') %>%
+    dplyr::summarise(
+      time = mean(time, na.rm = T),
+      HR1 = mean(HR1, na.rm = T),
+      HR2 = mean(HR2, na.rm = T), 
+      Resp1 = mean(Resp1, na.rm = T),
+      Resp2 = mean(Resp2, na.rm = T))
+  
+  
+  #remove 
+  
+  
+  
+  
+  
+  
+  output = data.frame(down)
+  
+  return(output)
+  
+}
+
+filename = "Study1_G1_T2_TurnTaking.csv"
+j <- read.csv(file = paste(path, filename, sep = ""), sep = ",", header = TRUE)
+j
+
+
+k <- prep("Study1_G1_T2_TurnTaking.csv")
+k
+
+```
+
+
+- Run crqa on all the pre-processed time-series and save the output (don't forget to add columns with study, group, condition and trial). Tip: remember to first assess optimal parameters (dimensions, delay, radius) across all timeseries. Tip: it will often fail, just take whatever parameters you get, select optimal across timeseries parameters and run crqa on all timeseries with those. Tip: double check the rr. When I ran the loop, I got very low rr, so I adjusted the radius until the average of rr across all pairs was approx. 4%.
+
+
 
 ### Creating controls: shuffled controls
  - loop through all pairs and conditions
