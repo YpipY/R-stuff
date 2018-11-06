@@ -1,0 +1,406 @@
+---
+title: "Assignment 3 - Part 2 - Diagnosing Schizophrenia from Voice"
+author: "Laurits Dixen"
+date: "October 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(lme4)
+library(caret)
+library(Metrics)
+library(lmerTest)
+library(boot)
+library(pROC)
+
+#loading the data
+data = read.csv("schizoAcousticData.csv")
+# Making the subjects paired again
+data$Subject = ifelse(data$Diagnosis==0, data$Subject-1000, data$Subject) 
+
+#making list for feature names for later use
+features = colnames(data)[6:16]
+
+#creating extra columns with all features z-scored 
+for (f in features){ #loop that runs through the list of features and paste it into the calculation
+  eval(parse(text = paste("data$z.",f," = (data$",f," - mean(na.omit(data$",f,"))) / sd(na.omit(data$",f,"))", sep="")))
+}
+
+#making list with z-scored feature names for later use
+zfeatures = c(colnames(data)[32:41],"z.qr95")
+
+```
+
+## Assignment 3 - Diagnosing schizophrenia from voice
+
+In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
+In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
+
+### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
+
+Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
+
+Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
+
+```{r, include=FALSE}
+
+#turning pitch range into z-score (needed for the model to converge) (can also be done like this: data$z.qr95 = scale(data$qr95, center = TRUE, scale = TRUE))
+data$z.qr95 = (data$qr95 - mean(na.omit(data$qr95))) / sd(na.omit(data$qr95))
+
+#create a model with diagnosis predicted by pitch range (0.5 to 0.95 quantiles) and random effects
+model = glmer(Diagnosis ~ z.qr95 + (1|Triangle) + (1|Subject), family = "binomial",data = data)
+summary(model)
+
+
+
+#add a column with predictions in the unit "probabilities" (with inv.logit)
+data$predictions = inv.logit(predict(model, newdata = data, allow.new.levels=TRUE))
+
+#set threshold for diagnosing at 0.5
+data$predictions[data$predictions > 0.5] = "Schizo"
+data$predictions[data$predictions <= 0.5] = "Control"
+
+#align labels of diagnosis
+data$Diagnosis[data$Diagnosis == 1] = "Schizo"
+data$Diagnosis[data$Diagnosis == 0] = "Control"
+
+#create confusion matrix to get performance measure
+confusionMatrix(data = as.factor(data$predictions), reference = as.factor(data$Diagnosis), positive = "Schizo")
+
+#load predictions again to get numeric data
+data$predictions = inv.logit(predict(model, newdata = data, allow.new.levels=TRUE))
+
+#ROC curve
+rocCurve <- roc(response = data$Diagnosis, predictor= data$predictions)
+#get area under the curve
+auc(rocCurve)
+#95% confidence intervals
+ci(rocCurve)
+#plot the curve
+plot(rocCurve, legacy.axes=TRUE)
+
+```
+
+
+Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
+
+```{r, include=FALSE}
+#make diagnosis numeric again
+data$Diagnosis[data$Diagnosis == "Schizo"] = 1
+data$Diagnosis[data$Diagnosis == "Control"] = 0
+data$Diagnosis = as.numeric(data$Diagnosis)
+
+#cross validation with 5 folds over the pitch range model
+folds = createFolds(y = unique(data$Subject), k=5, list = TRUE, returnTrain = FALSE)
+folds = lapply(folds, function(x) unique(data$Subject)[x])
+testSet = NULL
+for (f in folds) {
+  test = filter(data, Subject %in% f)
+  train = filter(data, !Subject %in% f)
+  
+  tempModel = glmer(Diagnosis ~ z.qr95 + (1|Subject) + (1|Triangle), family = "binomial",data = train)
+  
+  test$predictions = inv.logit(predict(tempModel, newdata = test, allow.new.levels=TRUE))
+
+  # Creating the full dataframe of predictions (can also be done like this: "predictions[data$Subject %in% f] = test$predictions", need to create emtpy vector before loop, like this "predictions = rep(NA, nrow(data))")
+  if (!is.null(testSet)){
+    testSet = rbind(testSet,test)
+  } else {
+    testSet = test
+  }  
+}
+
+#set threshold for diagnosing at 0.5 and change label
+testSet$predictions[testSet$predictions > 0.5] = "Schizo"
+testSet$predictions[testSet$predictions <= 0.5] = "Control"
+
+#align labels of diagnosis
+testSet$Diagnosis[testSet$Diagnosis == 1] = "Schizo"
+testSet$Diagnosis[testSet$Diagnosis == 0] = "Control"
+
+#create confusion matrix to get performance measures
+confusionMatrix(data = as.factor(testSet$predictions), reference = as.factor(testSet$Diagnosis), positive = "Schizo")
+
+```
+
+
+N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
+N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
+N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
+
+### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
+
+```{r, include=FALSE}
+#make diagnosis numeric again
+data$Diagnosis[data$Diagnosis == "Schizo"] = 1
+data$Diagnosis[data$Diagnosis == "Control"] = 0
+data$Diagnosis = as.numeric(data$Diagnosis)
+
+#cross validate the models (one for each acoustic predictor)
+folds = createFolds(y = unique(data$Subject), k=5, list = TRUE, returnTrain = FALSE)
+folds = lapply(folds, function(x) unique(data$Subject)[x])
+testSet = NULL 
+for (f in folds) {
+  test = filter(data, Subject %in% f)
+  train = filter(data, !Subject %in% f)
+  
+  for (zf in zfeatures) { #loop that runs through the list of z.features  
+    eval(parse(text=paste('tempModel = glmer(Diagnosis ~ ',zf,' + (1|Subject) + (1|Triangle), family = "binomial",data = train)', sep='')))
+    eval(parse(text=paste('test$pred',zf,' = inv.logit(predict(tempModel, newdata = test, allow.new.levels=TRUE))',sep='' )))
+    eval(parse(text=paste('test$pred',zf,'[test$pred',zf,' > 0.5] = "Schizo"',  sep=''))) #set threshold
+    eval(parse(text=paste('test$pred',zf,'[test$pred',zf,' <= 0.5] = "Control"',sep='')))
+  }
+  
+  # Creating the full dataframe of predictions
+  if (!is.null(testSet)){
+    testSet = rbind(testSet,test)
+  } else {
+    testSet = test
+  }  
+}
+
+#change labels for diagnosis
+testSet$Diagnosis[testSet$Diagnosis == 1] = "Schizo"
+testSet$Diagnosis[testSet$Diagnosis == 0] = "Control"
+
+#
+for (zf in zfeatures){ #loop that runs through all the z.features 
+  eval(parse(text=paste('matrix = confusionMatrix(data = as.factor(testSet$pred',zf,'), reference = as.factor(testSet$Diagnosis), positive = "Schizo")',sep = '')))
+  print(paste(zf,"has an accuracy of:",round(matrix$overall[1],3), "a sensitivity of:" ,round(matrix$byClass[1],3), "and a specificity of:", round(matrix$byClass[2], 3))) #print the accuracy score for all the models
+}
+
+
+
+```
+
+
+
+### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
+
+Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
+
+Remember:
+- Out-of-sample error crucial to build the best model!
+- After choosing the model, send Malte and Riccardo the code of your model
+```{r}
+read_pitch <- function(filename) {
+    # read data
+  data <- read.delim(file = paste(windowsPath, filename, sep = ""), sep = "\t", header = TRUE) 
+  soundname = filename
+    # parse filename
+  meta = str_extract_all(filename, "\\d+")
+  study = as.numeric(meta[[1]][1])
+  Diagnosis = as.numeric(meta[[1]][2])
+  Subject = as.numeric(meta [[1]][3])
+  triangles = as.numeric(meta[[1]][4])
+  
+    # extract descriptors
+  mean_f0 = round(mean(data$f0), digits = 2)
+  sd = sd(data$f0)
+  quantiles = quantile(data$f0, probs = c(0.05, 0.25, 0.50, 0.75, 0.95))
+  q05 = quantiles[[1]]
+  q25 = quantiles[[2]]
+  median = quantiles[[3]]
+  q75 = quantiles[[4]]
+  q95 = quantiles[[5]]
+  iqr2575 = q75-q25
+  coe.var = coefficient.variation(sd(data$f0), mean(data$f0))
+  MAD = mad(data$f0) #average distance from something...
+  
+    # combine all this data
+  output_list = data.frame(Subject, Diagnosis, study, triangles, mean_f0, sd, q05, q25, median, q75, q95, iqr2575, coe.var, MAD,soundname)
+  
+  return(output_list)
+}
+path = "/Users/lauritsdixen/R-stuff/Assignment 2/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/"
+windowsPath = "C:/Users/laurits/Desktop/cogsci-methods-3-assignments-master/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/Pitch/"
+
+pitch_data = list.files(path = windowsPath) %>%
+    purrr::map_df(read_pitch)
+
+extra = read.delim("Articulation.txt", sep=",")
+extra$soundname = as.character(extra$soundname)
+pitch_data$soundname = str_replace(pitch_data$soundname,"_f0.txt","")
+
+fullData = full_join(pitch_data,extra)
+fullData = fullData[complete.cases(fullData[ , 1]),]
+
+newFeatures = c(colnames(fullData)[5:14],colnames(fullData)[16:22])
+
+for (f in newFeatures){
+  eval(parse(text = paste("fullData$z.",f," = (fullData$",f," - mean(na.omit(fullData$",f,"))) / sd(na.omit(fullData$",f,"))", sep="")))
+  eval(parse(text = paste("fullData$m.",f," = (fullData$",f,"-min(na.omit(fullData$",f,"))) /(max(na.omit(fullData$",f,"))-min(na.omit(fullData$",f,")))",sep="")))
+}
+```
+
+
+```{r}
+
+
+# Defining possible variables, choose which normalization (z-score or min/max)
+#variables <- c('m.iqr2575','m.sd','m.MAD','m.coe.var','m.npause','m.dur..s.')
+variables <- c('z.iqr2575','z.sd','z.MAD','z.coe.var','z.npause','z.dur..s.')
+signs = list(c("+","*"))
+
+models = data.frame(matrix(ncol=4),nrow=0)
+colnames(models) = c("variables", "accuracy", "sensi", "speci","AUC")
+folds = createFolds(y = unique(fullData$Subject), k=5, list = TRUE, returnTrain = FALSE)
+folds = lapply(folds, function(x) unique(fullData$Subject)[x])
+# Creating a powerset (set of all possible subsets) for the permutations
+PowerSet <- powerSet(variables)
+for (set in PowerSet[2:length(PowerSet)]) {
+  # Reformating the set
+  if (length(set)==1) {
+    collapsed = paste(set)
+  } else {
+    currentSet = c()
+    for (e in set) {
+      currentSet <- c(e,currentSet) }
+    
+    signsCombs = expand.grid(rep(signs, length(currentSet)-1))
+    
+    for (row in seq(1,nrow(signsCombs))){
+      combined = c(currentSet[1])
+      
+      for (col in seq(2,length(currentSet))) {
+        sign = as.character(signsCombs[row,col-1])
+        combined = c(combined,sign,currentSet[col])
+      }
+      collapsed = paste(combined, collapse ="")
+      print(collapsed)
+      # Creating the command in string format
+      testParsing <- paste('glmer(Diagnosis ~ ',collapsed,' + (1|Subject) + (1|triangles), data = train, family = "binomial")',sep = '')
+      predictors = rep(NA, nrow(fullData))
+      # CV folds
+      for (f in folds) {
+        test = filter(fullData, Subject %in% f)
+        train = filter(fullData, !Subject %in% f)
+        # Training the model
+        ERR <<- FALSE
+        
+        tryCatch ({model = eval(parse(text=testParsing))},
+        error=function(err){ERR <<- TRUE; print ("Not Converged")}) 
+        if (ERR) {
+          break
+        } 
+        # Creating predictions
+        predictors[fullData$Subject %in% f] = as.numeric(inv.logit(predict(model, newdata = test, allow.new.levels=TRUE)))
+      }
+      if (!ERR) {
+        predictors = as.numeric(predictors)
+        rocCurve <- roc(response = fullData$Diagnosis, predictor = predictors)
+        fullData$Predictors = predictors
+        
+        dat = aggregate(fullData[,"Predictors"],list(fullData$Subject,fullData$Diagnosis),mean,na.rm=TRUE)
+
+        colnames(dat) = c("Subject","Diagnosis","Predictors")
+        dat$Predictors = ifelse(dat$Predictors > 0.5, 1, 0)
+        matrix = confusionMatrix(data = as.factor(dat$Predictors), reference = as.factor(dat$Diagnosis),positive = "1")
+        models = rbind(models, c(collapsed,matrix$overall[1],matrix$byClass[1],matrix$byClass[2],auc(rocCurve)))
+      }
+    }
+  }
+}
+
+
+```
+
+
+### Question 4: Properly report the results
+
+METHODS SECTION: how did you analyse the data? That is, how did you extract the data, designed the models and compared their performance?
+
+#QUESTION 1: How did we analyse the data? 
+
+From the last portfolio we had a file with extraced acoustic features. From this file we used the acoustic feature "qr95", which is the pitch range from quartile 0.05 to quartile 0.95. This range was used in order to avoid outliers to drastically affect the acoustic feature.
+
+We z-scored all of the acoustic feature, since an assumption when making the models is that the continious variables are on a somewhat similar scale. So if one variable is on a scale from 0 to 1000 and another variable on a scale from 1 to 3 the model fails to converge.
+
+
+Model design: 
+
+The model used to investigate wheter pitch range is a significant predictor of diagnosis was as follows: 
+
+model = glmer(Diagnosis ~ range + (1|Triangle) + (1|Subject), family = "binomial")
+
+We made a logistic regression, since the outcome we want to predict is binomial, i.e. Schizophrenia or Control. 
+We included Subject and Triangle as random intercept. This is to allow subjects to have different pitch. By including triangle as random intercept, we allow the trials to have a different effect on pitch. Since we are not looking at a development, we did not include any random slopes. The participants are paired across diagnosis, therefore gender and age is not included as fixed effects as this is already accounted for in the data. 
+
+Comparison of their performance: 
+In order to assess the performance of the model we used the model to predict diagnosis. With the predict() function the outcome is in log odds. We used the inv.logit() to obtain pobabilities for intepretation reasons. 
+We used the predictions to create a ROC curve and examined the area under the curve and the actual plot. The area under the curve is 0.62 with 95% confidence intervals: 0.59 - 0.65.
+
+Confusion Matrix:
+
+Prediction Control Schizo
+   Control     300    119
+   Schizo      364    556
+                                         
+               Accuracy : 0.6393         
+                 95% CI : (0.6129, 0.665)
+
+            Sensitivity : 0.8237         
+            Specificity : 0.4518         
+         Pos Pred Value : 0.6043         
+         Neg Pred Value : 0.7160
+         
+         
+The accuracy of the model is 0.64, which is not sufficient enough to actually rely on in the real world. Investigating the model further looking at sensitivity and specificity we can see that the model has a quite high sensitivity (0.82), but a low specificity (0.45). The sensitivity of the model is the rate that the event of interest is predicted correctly for all samples having the event. Because of the high sensitivity in this model, there is a good chance of diagnosing the subject as schizophrenic, if the subject is in fact schizophrenic. But specificity is rather low, this indicates that this model would often diagnose subjects as scizophrenics, when they were in fact controls.
+(The specificity is defined as the rate that nonevent samples are predicted as nonevents).
+
+
+```{r}
+plot(rocCurve, legacy.axes=TRUE)
+auc(rocCurve)
+ci(rocCurve)
+
+```
+
+We cross-validated the model to get a more realistic idea of the performance of the model and got the following confusion matrix:
+
+Prediction Control Schizo
+   Control     246    202
+   Schizo      418    473
+                                          
+               Accuracy : 0.537           
+                 95% CI : (0.5098, 0.5639)
+
+            Sensitivity : 0.7007          
+            Specificity : 0.3705          
+         Pos Pred Value : 0.5309          
+         Neg Pred Value : 0.5491          
+
+From this we can see that the model actually performs worse than originally thought with an accucary of 0.54 and worse specificity (0.37) and sensitivity (0.70).
+
+#QUESTION 2: Feature selection
+
+We cross-validated a models with each acoustic feature:
+
+glmer(Diagnosis ~ acoustic feature + (1|Subject) + (1|Triangle), family = "binomial")
+
+The outcome of this was as follows:
+
+[1] "z.inter quartile range .95 has an accuracy of: 0.565 a sensitivity of: 0.776 and a specificity of: 0.351"
+[1] "z.Mean has an accuracy of: 0.499 a sensitivity of: 0.399 and a specificity of: 0.601"
+[1] "z.sd has an accuracy of: 0.557 a sensitivity of: 0.778 and a specificity of: 0.333"
+[1] "z.q05 has an accuracy of: 0.538 a sensitivity of: 0.425 and a specificity of: 0.652"
+[1] "z.q25 has an accuracy of: 0.523 a sensitivity of: 0.415 and a specificity of: 0.633"
+[1] "z.q50 has an accuracy of: 0.483 a sensitivity of: 0.39 and a specificity of: 0.578"
+[1] "z.q75 has an accuracy of: 0.476 a sensitivity of: 0.447 and a specificity of: 0.505"
+[1] "z.q95 has an accuracy of: 0.453 a sensitivity of: 0.41 and a specificity of: 0.497"
+[1] "z.inter quartile range .75 has an accuracy of: 0.532 a sensitivity of: 0.686 and a specificity of: 0.375"
+[1] "z.MAD has an accuracy of: 0.559 a sensitivity of: 0.721 and a specificity of: 0.395"
+[1] "z.CoefVar has an accuracy of: 0.591 a sensitivity of: 0.799 and a specificity of: 0.381"
+
+From this we will conclude that inter quartile range 0.95 (accuracy: 0.57, sensitivity: 0.776, specificity: 0.351), sd (accuracy: 0.55, sensitivity: 0.778, specificity: 0.333), MAD (accuracy: 0.56, sensitivity: 0.721, specificity of: 0.395), Coefficient of variance (accuracy: 0.59, sensitivity: 0.799, specificity: 0.381) are the best predictors of diagnosis. The models accuracy score are similar and by eyeballing the ratio between sensitivity and specificity, we see that these are also similar across the models. From this it is difficult to select one model as being better than the others.  
+
+###RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
+
+In conclusion, Diagnosis cannot be predicted from acoustic features from voice pitch nor pause. Since none of the model perform better than an accuracy of ~ .60.
+However, the sensitivity of the model however is rather high ~.80. This assures that there is a good chance that if a subject is scizophrenic, this subject will actually get the diagnosis; shizophrenic.
+
+
+### Bonus question 5
+
+You have some additional bonus data involving speech rate, pauses, etc. Include them in your analysis. Do they improve classification?

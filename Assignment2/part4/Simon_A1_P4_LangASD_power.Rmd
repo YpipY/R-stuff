@@ -1,0 +1,145 @@
+---
+title: "Assignment 1 - Language Development in ASD - part 4"
+author: "Simon Moeller Nielsen"
+date: "07/10 2018"
+output: html_document
+---
+
+
+## Welcome to the fourth exciting part of the Language Development in ASD exercise
+
+In this exercise we will assess how many participants we would need to adequately replicate our findings (ensuring our sample size is adequate, our alpha at 0.05 and our beta at 0.8).
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Loading packages
+#library(lmerTest)
+#detach('package:lmerTest', unload=TRUE)
+library(lme4)
+library(simr)
+library(fakeR)
+library(tidyverse)
+```
+
+### Exercise 1
+```{r, include=FALSE}
+# Setting WD
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment1&2_LanguageASD/part4")
+# Loading data
+train<-read.csv("train.csv")
+train<-train[complete.cases(train[ , 14]),]
+# Setting the model
+ados_model = lmer(CHI_MLU ~ Diagnosis * VISIT + ADOS  + (1+VISIT|SUBJ), data= train, REML=FALSE)
+summary(ados_model)
+simpleModel=lmer(CHI_MLU  ~  Diagnosis * VISIT  +  (1  +  VISIT  |  SUBJ), data= train,REML=F) 
+summary(simpleModel)
+```
+How much power does your study have (if your model estimates are quite right)?
+- [GitHub]Load your dataset, fit your favorite model, assess power for your main effects and interactions of interest.
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+```{r, include=FALSE}
+## Performing powersims, all using likelihood ratio
+
+# Trying to figure out powerSim
+?powerSim
+powerSim(simpleModel,fixed('DiagnosisTD:VISIT',method='t'),nsim=10)
+
+powerSim(ados_model, fcompare(~ Diagnosis + VISIT - Diagnosis * VISIT, 'lr'), nsim=10)
+lastResult()$error
+powerSim(simpleModel,simr::fixed('Diagnosis','lr'),nsim=10)
+lastResult()$warnings
+powerSim(simpleModel,fixed('VISIT'),nsim=10)
+powerSim(ados_model,fixed('ADOS'),nsim=10)
+simpleModel
+
+# Powersim for the interaction of diagnosis and visit
+powerSim(simpleModel,simr::fixed('DiagnosisTD:VISIT',method='t'),nsim=1000)
+# Powersim for the diagnosis
+powerSim(simpleModel,simr::fixed('DiagnosisTD', method='t'),nsim=1000)
+# Powersim for the Visit
+powerSim(simpleModel,simr::fixed('VISIT', method='t'),nsim=1000)
+```
+
+[ANSWER]
+For the model I chose a linear mixed effects model predicting child MLU development. With the fixed effctes being an interaction effect between diagnosis and number of visits. andom effects was intercepts and slopes by subjects for child MLU.
+A power simulations was run on the interaction effect of diagnosis and visits. 1000 simulations where run with p-value optained via a Students t-test and 95% confidence interval. The simulation found 100 % power.
+Power simulations were also run for diagnosis and visit in the same way. The power of the diagnosis predictor was 22.8% and the power the visit predictor was 95.3%. However, it does not make much sense to look at the power of the individual predictors since we this is a interaction effect.
+So according to this power simulation, the experiment was very overpowered.
+However, this is misleading since we are using the effect size that our model predicted and this is likely an overestimate of the true effect size since the model has likly overfittet. Therfore we cannot really conclude that our experiment has enough power or use the effect size to motivate the power of future studies.
+
+### Exercise 2
+
+How would you perform a more conservative power analysis?
+- Identify and justify a minimum effect size for each of your relevant effects
+- [GitHub] take the model from exercise 1 and replace the effects with the minimum effect size that you'd accept.
+```{r, include=FALSE}
+# The model
+simpleModelLow=lmer(CHI_MLU  ~  Diagnosis * VISIT  +  (1  +  VISIT  |  SUBJ), data= train,REML=F) 
+summary(simpleModelLow)
+# Getting a messure of Cohen's d
+0.25112/sd(train$CHI_MLU)
+# Cohen suggested 0.2 is a small effects size
+0.2*sd(train$CHI_MLU)
+# Mimimum effect then is
+0.1866996
+```
+- [GitHub] assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
+```{r, include=FALSE}
+# Setting the Mimimum effect
+simpleModelLow@beta[4]<-0.1866996
+# Runing the simulations for the power curve for the minimum interaction effect
+pc<-powerCurve(simpleModelLow, simr::fixed('DiagnosisTD:VISIT',method='t'),along = 'SUBJ')
+pc
+plot(pc)
+pc4<-powerCurve(simpleModelLow, simr::fixed('DiagnosisTD:VISIT',method='t'),along = 'SUBJ', breaks= c(20:30))
+pc4
+plot(pc4)
+?simulate_dataset_ts
+# Runing the simulations for the power curve for the minimum effect of diagnosis
+# Creating a model with more partisipants
+simData<-select(train,SUBJ,VISIT, Diagnosis, CHI_MLU)
+simData<- simulate_dataset_ts(simData, digits=5, n=6228, cluster='VISIT', time.variable='CHI_MLU', ignore=c('Diagnosis','SUBJ'))
+?simulate_dataset
+simpleModelLow=lmer(CHI_MLU  ~  Diagnosis * VISIT  +  (1  +  VISIT  |  SUBJ), data= simData,REML=F)
+summary(simpleModelLow)
+simpleModelLow@beta[2]<--0.1866996
+
+pc5<-powerCurve(simpleModelLow, simr::fixed('DiagnosisTD',method='t'),along = 'SUBJ',breaks=c(100,200,300,400,500))
+pc5
+plot(pc5)
+
+# Runing the simulations for the power curve for the minimum effect of visit
+trainD<-train
+trainD$CHI_MLU<-(train$CHI_MLU-mean(train$CHI_MLU))/sd(train$CHI_MLU)
+simpleModelD=lmer(CHI_MLU  ~  Diagnosis * VISIT  +  (1  +  VISIT  |  SUBJ), data= trainD,REML=F)
+summary(simpleModelD)
+
+simpleModelD@beta[3]<-0.2
+
+pc6<-powerCurve(simpleModelD, simr::fixed('VISIT',method='t'),along = 'SUBJ')
+pc6
+plot(pc6)
+pc7<-powerCurve(simpleModelD, simr::fixed('VISIT',method='t'),along = 'SUBJ', breaks= c(15:25))
+pc7
+plot(pc7)
+```
+- [GitHub] if your power estimates do not reach an acceptable threshold simulate additional participants and repeat the previous analysis
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+[ANSWER]
+To find a more conservative estimate of power, to motivate number of paticipants for a future experiment, the lowest acceptable effect size was set in the model. Using Cohen's d a minimum effect size was fund given the standard deviation of child MLU. It was found that for a small effect size acording to Cohen's d (d=0.2) it would be 0.19.
+An simulation of the power was run varying number of participants. 
+For the interaction between diagnosis and visit, it was found that at and above 23 participant the power of the effect would reliably be above 80%.
+For visits and it was found that at and above 19 participant the power of the effect would reliably be above 80%.
+
+We can use this messure to say that if we want to get a reliable result we need to run experiments with atleast 26 participants.
+This is of couse not a messure of the real effect size, only the minimum we are willing to expect. The means that either it is above and we will have even greater power or it is below and we will not be able to use it even if we could get a reliable result. It is of couse better to a more informed effect size since this is very conservative and therefor we might get more participants than we need and therefore waste resources, however, since we have no idea of want the real effect size might be this is the best we can do.
+
+### Exercise 3
+
+Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why.
+```{r, include=FALSE}
+# Getting the estimated power for 30 participants
+pc4
+```
+[ANSWER]
+The power for the interaction between diagnosis and visit with 30 participants is around 88.1 %, meaning that even with the smallest effect size we are willing to accept we still have good power. Running the experiment is therefore worth it, since even if the effect size is smaller than the estimate and therefore lowering the power and giving us unreliable results, it will not be a very usable effect.

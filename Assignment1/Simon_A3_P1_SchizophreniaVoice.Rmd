@@ -1,0 +1,518 @@
+---
+title: "Assignment2_Part1_VoiceInSchizophrenia"
+author: "Simon Møller Nielsen"
+date: "24/10 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Loading packages
+library(stringr)
+library(tidyverse)
+library(plyr)
+library(lmerTest)
+library(caret)
+library(Metrics)
+library(dplyr)
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/")
+```
+
+## Assignment 2 - Part 1 - Assessing voice in schizophrenia
+
+Schizophrenia has been associated with "inappropriate" voice, sometimes monotone, sometimes croaky. A few studies indicate that pitch might be an index of schizophrenia. However, an ongoing meta-analysis of the literature (which you will have a go at in the last assignment) indicates that pitch mean and standard deviation are only weak indicators of diagnosis. Can we do better with our new fancy complex skills?
+
+The corpus you are asked to analyse is a set of voice recordings from people with schizophrenia (just after first diagnosis) and 1-1 matched controls (on gender, age, education). Each participant watched 10 videos of triangles moving across the screen and had to describe them (so you have circa 10 recordings per person). We have already extracted the pitch once every 10 milliseconds and you will have to use this data to assess differences in the voice.
+
+Can you characterize voice in schizophrenia as acoustically different? Report the methods you used to answer this question and the results from the analyses. Add a couple of lines trying to interpret the results (make sense of the difference). E.g. People with schizophrenia tend to have high-pitched voice, and present bigger swings in their prosody than controls. Add a couple of lines describing limitations of the data/analyses if any is relevant.
+
+
+N.B. There are looots of files to be dealt with. Maybe too many for your computer, depending on how you load the files. This is a challenge for you. Some (complementary) possible strategies:
+- You can select a subset of files only (and you have to justify your choice).
+- You can learn how to use the apply() or map() functions.
+- You can coordinate with classmates.
+
+Hint: There is some information in the filenames that you might need.
+Hint: It might be a good idea to first create a function which loads and parses one file, and then loop through the list of files to read them all. For example
+
+```{r,include=FALSE}}
+# Making an array with all the names of the files
+files <- list.files(path='Pitch/')
+
+# Setting up a dataframe for the loop
+data <- data.frame(soundname=character(),
+                Study=numeric(),
+                Subject=numeric(),
+                 Diagnosis=numeric(),
+                Triangles=numeric(),
+                Mean=integer(),
+                SD=integer(),
+                Range=integer(),
+                Median=integer(),
+                '5%' =integer(),
+                '25%' =integer(),
+                '75%' =integer(),
+                '95%' =integer(),
+                 stringsAsFactors=FALSE)
+n=0
+
+#feature extraction
+for (i in files){
+  n<-n+1
+  #Extrating metadata
+  data[n,1] <- i
+  temp<-str_extract_all(i,'\\d+')
+  temp[[1]]<-as.numeric(temp[[1]])
+  data[n,2] <- temp[[1]][1]
+  data[n,3] <- temp[[1]][3]
+  data[n,4] <- temp[[1]][2]
+  data[n,5] <- temp[[1]][4]
+  #Extrating features
+  filepath<-paste('Pitch/', i, sep="")
+  temp2<- read.delim(filepath,sep='\t')
+  data[n,6] <- mean(temp2$f0)
+  data[n,7] <- sd(temp2$f0)
+  ran<-range(temp2$f0)
+  data[n,8] <- ran[2]-ran[1]
+  data[n,9] <- median(temp2$f0)
+  data[n,10] <- quantile(temp2$f0, probs=0.05)
+  data[n,11] <- quantile(temp2$f0, probs=0.25)
+  data[n,12] <- quantile(temp2$f0, probs=0.75)
+  data[n,13] <- quantile(temp2$f0, probs=0.95)
+}
+
+# Getting further relevant metadata
+Metadata<-read.delim('DemoData.txt',sep='\t')
+Metadata<-select(Metadata, 'Study','Subject','Diagnosis','Gender','Education','Age')
+
+# Mergeing all the data
+data$Diagnosis<-as.factor(data$Diagnosis)
+data$Diagnosis<-revalue(data$Diagnosis, c('0'='Control','1'='Schizophrenia'))
+
+pitchData<-merge(Metadata, data)
+
+# Making it so that all participants have diffenrent subject numbers
+pitchDataC<-filter(pitchData, Diagnosis=='Control')
+pitchDataS<-filter(pitchData, Diagnosis=='Schizophrenia')
+pitchDataS$Subject<-pitchDataS$Subject+1000
+pitchData<-rbind(pitchDataC, pitchDataS)
+
+table(pitchData$Diagnosis)
+
+# Setting the right name for soundname
+pitchData$soundname<-str_remove(pitchData$soundname,"_f0.txt")
+
+# Saving the data
+write.csv(pitchData, file = "SimonPitchData.csv")
+```
+
+
+1. In the course of this assignment you have to first select one datafile and figure out how to:
+
+- Extract "standard" descriptors of pitch: Mean, standard deviation, range
+- Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
+
+2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
+- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+
+3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+
+```{r,include=FALSE}}
+#log transforming the data
+pitchData$Mean<-log(pitchData$Mean)
+pitchData$SD<-log(pitchData$SD)
+pitchData$Range<-log(pitchData$Range)
+pitchData$Median<-log(pitchData$Median)
+pitchData$X5.<-log(pitchData$X5.)
+pitchData$X25.<-log(pitchData$X25.)
+pitchData$X75.<-log(pitchData$X75.)
+pitchData$X95.<-log(pitchData$X95.)
+
+# Testing how well diagosis is as a predictor of different acoustic features
+meanModel = lmer(Mean ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(meanModel)
+
+SDModel = lmer(SD ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(SDModel)
+
+rangeModel = lmer(Range ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(rangeModel)
+
+medianModel = lmer(Median ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(medianModel)
+
+x5Model = lmer(X5. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x5Model)
+
+x25Model = lmer(X25. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x25Model)
+
+x75Model = lmer(X75. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x75Model)
+
+x95Model = lmer(X95. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x95Model)
+
+#Assumptions testing
+plot(residuals(meanModel))
+qqnorm(residuals(meanModel))
+plot(fitted(meanModel),residuals(meanModel))^2
+
+plot(residuals(SDModel))
+qqnorm(residuals(SDModel))
+plot(fitted(SDModel),residuals(SDModel))^2
+
+plot(residuals(rangeModel))
+qqnorm(residuals(rangeModel))
+plot(fitted(rangeModel),residuals(rangeModel))^2
+
+plot(residuals(medianModel))
+qqnorm(residuals(medianModel))
+plot(fitted(medianModel),residuals(medianModel))^2
+
+plot(residuals(x5Model))
+qqnorm(residuals(x5Model))
+plot(fitted(x5Model),residuals(x5Model))^2
+
+plot(residuals(x25Model))
+qqnorm(residuals(x25Model))
+plot(fitted(x25Model),residuals(x25Model))^2
+
+plot(residuals(x75Model))
+qqnorm(residuals(x75Model))
+plot(fitted(x75Model),residuals(x75Model))^2
+
+plot(residuals(x95Model))
+qqnorm(residuals(x95Model))
+plot(fitted(x95Model),residuals(x95Model))^2
+
+# Testing Study as a predictor
+meanModel = lmer(Mean ~ Diagnosis + Gender+ Study  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(meanModel)
+
+SDModel = lmer(SD ~ Diagnosis + Gender + Study + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(SDModel)
+
+rangeModel = lmer(Range ~ Diagnosis + Gender + Study  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(rangeModel)
+
+medianModel = lmer(Median ~ Diagnosis + Gender + Study  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(medianModel)
+
+x5Model = lmer(X5. ~ Diagnosis + Gender+ Study  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x5Model)
+
+x25Model = lmer(X25. ~ Diagnosis + Gender+ Study  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x25Model)
+
+x75Model = lmer(X75. ~ Diagnosis + Gender+ Study  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x75Model)
+
+x95Model = lmer(X95. ~ Diagnosis + Gender+ Study  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x95Model)
+
+meanModel = lmer(Mean ~ Diagnosis* Study + Gender  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(meanModel)
+
+SDModel = lmer(SD ~ Diagnosis* Study + Gender + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(SDModel)
+
+rangeModel = lmer(Range ~ Diagnosis* Study + Gender  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(rangeModel)
+
+medianModel = lmer(Median ~ Diagnosis* Study + Gender   + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(medianModel)
+
+x5Model = lmer(X5. ~ Diagnosis* Study + Gender  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x5Model)
+
+x25Model = lmer(X25. ~ Diagnosis * Study + Gender  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x25Model)
+
+x75Model = lmer(X75. ~ Diagnosis * Study + Gender  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x75Model)
+
+x95Model = lmer(X95. ~ Diagnosis * Study+ Gender  + (1|Subject) + (1|Triangles), data= pitchData, REML=FALSE)
+summary(x95Model)
+
+```
+
+```{r,include=FALSE}}
+# Cross validation
+Folds<-createFolds(unique(pitchData$Subject), k=10, list=T, returnTrain=F)
+Folds<-lapply(Folds, function(x) unique(pitchData$Subject)[x])
+
+# The mean model
+trainError=NULL
+testError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(pitchData, !Subject %in% i)
+  testFold = filter(pitchData, Subject %in% i)
+  meanModel = lmer(Mean ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= trainFold, REML=FALSE)
+  
+  pTrain <- predict(meanModel,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$Mean)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$Mean)/sd(trainFold$Mean)
+  
+  pTest <- predict(meanModel,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$Mean)
+  testErrorSD[n] <-rmse(pTest,testFold$Mean)/sd(testFold$Mean)
+}
+trainError
+mean(trainError)
+mean(trainErrorSD)
+testError
+mean(testError)
+mean(testErrorSD)
+```
+
+```{r,include=FALSE}}
+# The SD model
+trainError=NULL
+testError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(pitchData, !Subject %in% i)
+  testFold = filter(pitchData, Subject %in% i)
+  SDModel = lmer(SD ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= trainFold, REML=FALSE)
+  
+  pTrain <- predict(SDModel,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$SD)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$SD)/sd(trainFold$SD)
+  
+  pTest <- predict(SDModel,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$SD)
+  testErrorSD[n] <-rmse(pTest,testFold$SD)/sd(testFold$SD)
+}
+trainError
+mean(trainError)
+mean(trainErrorSD)
+testError
+mean(testError)
+mean(testErrorSD)
+```
+
+```{r,include=FALSE}}
+# The range model
+trainError=NULL
+testError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(pitchData, !Subject %in% i)
+  testFold = filter(pitchData, Subject %in% i)
+  rangeModel = lmer(Range ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= trainFold, REML=FALSE)
+  
+  pTrain <- predict(rangeModel,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$Range)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$Range)/sd(trainFold$Range)
+  
+  pTest <- predict(rangeModel,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$Range)
+  testErrorSD[n] <-rmse(pTest,testFold$Range)/sd(testFold$Range)
+}
+trainError
+mean(trainError)
+mean(trainErrorSD)
+testError
+mean(testError)
+mean(testErrorSD)
+```
+
+```{r,include=FALSE}}
+# The median model
+trainError=NULL
+testError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(pitchData, !Subject %in% i)
+  testFold = filter(pitchData, Subject %in% i)
+  medianModel = lmer(Median ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= trainFold, REML=FALSE)
+  
+  pTrain <- predict(medianModel,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$Median)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$Median)/sd(trainFold$Median)
+  
+  pTest <- predict(medianModel,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$Median)
+  testErrorSD[n] <-rmse(pTest,testFold$Median)/sd(testFold$Median)
+}
+trainError
+mean(trainError)
+mean(trainErrorSD)
+testError
+mean(testError)
+mean(testErrorSD)
+```
+
+```{r,include=FALSE}}
+# The x5Model
+trainError=NULL
+testError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(pitchData, !Subject %in% i)
+  testFold = filter(pitchData, Subject %in% i)
+  x5Model = lmer(X5. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= trainFold, REML=FALSE)
+  
+  pTrain <- predict(x5Model,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$X5.)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$X5.)/sd(trainFold$X5.)
+  
+  pTest <- predict(x5Model,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$X5.)
+  testErrorSD[n] <-rmse(pTest,testFold$X5.)/sd(testFold$X5.)
+}
+trainError
+mean(trainError)
+mean(trainErrorSD)
+testError
+mean(testError)
+mean(testErrorSD)
+```
+
+```{r,include=FALSE}}
+# The x25Model
+trainError=NULL
+testError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(pitchData, !Subject %in% i)
+  testFold = filter(pitchData, Subject %in% i)
+  x25Model = lmer(X25. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= trainFold, REML=FALSE)
+  
+  pTrain <- predict(x25Model,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$X25.)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$X25.)/sd(trainFold$X25.)
+  
+  pTest <- predict(x25Model,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$X25.)
+  testErrorSD[n] <-rmse(pTest,testFold$X25.)/sd(testFold$X25.)
+}
+trainError
+mean(trainError)
+mean(trainErrorSD)
+testError
+mean(testError)
+mean(testErrorSD)
+```
+
+```{r,include=FALSE}}
+# x75Model
+trainError=NULL
+testError=NULL
+trainErrorSD=NULL
+testErrorSD=NULL
+
+n=0
+
+for (i in Folds) {
+  n=n+1
+  trainFold = filter(pitchData, !Subject %in% i)
+  testFold = filter(pitchData, Subject %in% i)
+  x75Model = lmer(X75. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= trainFold, REML=FALSE)
+  
+  pTrain <- predict(x75Model,trainFold)
+  trainError[n] <-rmse(pTrain,trainFold$X75.)
+  trainErrorSD[n] <-rmse(pTrain,trainFold$X75.)/sd(trainFold$X75.)
+  
+  pTest <- predict(x75Model,testFold,allow.new.levels = T)
+  testError[n] <-rmse(pTest,testFold$X75.)
+  testErrorSD[n] <-rmse(pTest,testFold$X75.)/sd(testFold$X75.)
+}
+trainError
+mean(trainError)
+mean(trainErrorSD)
+testError
+mean(testError)
+mean(testErrorSD)
+```
+4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
+- Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
+```{r,include=FALSE}}
+## Looking at the effect sizes 
+#standardize the data to cohen's d
+pitchDataSta<-pitchData
+pitchDataSta$Mean<-(pitchDataSta$Mean-mean(pitchDataSta$Mean))/sd(pitchDataSta$Mean)
+pitchDataSta$SD<-(pitchDataSta$SD-mean(pitchDataSta$SD))/sd(pitchDataSta$SD)
+pitchDataSta$Range<-(pitchDataSta$Range-mean(pitchDataSta$Range))/sd(pitchDataSta$Range)
+pitchDataSta$Median<-(pitchDataSta$Median-mean(pitchDataSta$Median))/sd(pitchDataSta$Median)
+pitchDataSta$X5.<-(pitchDataSta$X5.-mean(pitchDataSta$X5.))/sd(pitchDataSta$X5.)
+pitchDataSta$X25.<-(pitchDataSta$X25.-mean(pitchDataSta$X25.))/sd(pitchDataSta$X25.)
+pitchDataSta$X75.<-(pitchDataSta$X75.-mean(pitchDataSta$X75.))/sd(pitchDataSta$X75.)
+pitchDataSta$X95.<-(pitchDataSta$X95.-mean(pitchDataSta$X95.))/sd(pitchDataSta$X95.)
+
+# Testing how well diagosis is as a predictor of different acoustic features
+meanModel = lmer(Mean ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchDataSta, REML=FALSE)
+summary(meanModel)
+
+SDModel = lmer(SD ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchDataSta, REML=FALSE)
+summary(SDModel)
+
+rangeModel = lmer(Range ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchDataSta, REML=FALSE)
+summary(rangeModel)
+
+medianModel = lmer(Median ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchDataSta, REML=FALSE)
+summary(medianModel)
+
+x5Model = lmer(X5. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchDataSta, REML=FALSE)
+summary(x5Model)
+
+x25Model = lmer(X25. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchDataSta, REML=FALSE)
+summary(x25Model)
+
+x75Model = lmer(X75. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchDataSta, REML=FALSE)
+summary(x75Model)
+
+x95Model = lmer(X95. ~ Diagnosis + Gender + (1|Subject) + (1|Triangles), data= pitchDataSta, REML=FALSE)
+summary(x95Model)
+```
+5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
+
+6. Write a paragraph reporting methods and results
+
+[ANSWER]
+Features were extracted form the pitch. The features were the mean, standard deviation, range, 0.05 quantile, 0.25 quantile, median, 0.75 quantile and 0.95 quantile. Linear mixed effects analyses were preformed predicting the features extracted form the pitch. Of interest was diagnosis ablility to predict these features. 
+The models created included diagnosis aswell as gender as fixed effects. Gender was added since it is well known that males and females have very different levels of pitch. Age was also considered as a fixed effect, since it is also known to effect pitch, however, it was found to have no significant impact on pitch. This is likly due to the similar age range of the participants. Random intercepts were also added by subject and by triangels.
+Testing of the assumptions of normality and homoscedasticity were also conducted. It was found that the residuals were normally distributed, except for a few outliers. Removing them could give better results. But for now they will be kept in. As for homoscedasticity is assumption was violated in most residuals.
+It was therefor decided to log transform the data. After the log transformation assumptions of normality and homoscedasticity for the mean, standard deviation, range were considerably better. Though removing outliers might still be considered, but in order not to change the data too much it was not done. The assumptions for the median and quantiles were no better. I decided to keep the data log transformed and not try further transformation, so the violation should be kept in mind when looking at the median and quantiles models.
+Dignosis was shown to be a significant predictor of the mean (beta=0.02, SE=0.01, t(148.4)=3.245, p < 0.01), standard deviation (beta=-0.2, SE=0.06, t(147.77)=-3.254, p < 0.01), range (beta=-0.14, SE=0.05, t(147.91)=-2.736, p < 0.01), median (beta=0.09, SE=0.03, t(148.28)=2.899, p < 0.01),  0.05 quantile (beta=0.19, SE=0.04, t(148.06)=4.597, p < 0.001), 0.25 quantile (beta=0.15, SE=0.04, t(148.86)=4.12, p < 0.001) and  0.75 quantile (beta=0.05, SE=0.03, t(148.18)=2.07, p < 0.05). 
+Cross-validations were also run for each model that showed a significant effect. The Cross-validation were done with K-fold of 10 folds. The models predictive power was then tested using root mean square error. The prediction of the mean was found to have to have an error on the training data of 0.029, or 42 % of standard deviation, and an error on the test data of 0.045, or 65 % of standard deviation. The prediction of the standard deviation was found to have to have an error on the training data of 0.459, or 70 % of standard deviation, and an error on the test data of 0.59, or 93 % of standard deviation. The prediction of the range was found to have to have an error on the training data of 0.361, or 66 % of standard deviation, and an error on the test data of 0.47, or 88 % of standard deviation. The prediction of the median was found to have to have an error on the training data of 0.157, or 43 % of standard deviation, and an error on the test data of 0.672, or 67 % of standard deviation. The prediction of the 0.05 quantile was found to have to have an error on the training data of 0.24, or 56 % of standard deviation, and an error on the test data of 0.342, or 80 % of standard deviation. The prediction of the 0.25 quantile was found to have to have an error on the training data of 0.229, or 56 % of standard deviation, and an error on the test data of 0.317, or 78 % of standard deviation. The prediction of the 0.75 quantile was found to have to have an error on the training data of 0.15, or 43 % of standard deviation, and an error on the test data of 0.214, or 61 % of standard deviation.
+Lastly the effect sizes of the diagnosis predictore was found in cohen's d. Of the mean the effect size was 0.264, for the standard deviation it was -0.311, for the range it was -0.25, for the median it was 0.244, for the 0.05 quantile it was 0.438, for the 0.25 quantile it was 0.371, for the 0.75 quantile it was 0.156 and for the 0.95 quantile it was 0.1.
+Another linear mixed effects model was created with study added as a fixed effect and another model with an interaction of diagnosis and study. Study was only found to be a significant predictor of one pitch feature, that was range. It is likly that this is just a false positive, considering its inability to predict similar features. This mean that there were likly no diffrences in pitch that arose form difference experimental conditions form study to study.
+
+[Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
+
+## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time

@@ -1,0 +1,153 @@
+---
+title: "Assignment 1 - Language Development in ASD - part 4"
+author: "Riccardo Fusaroli"
+date: "August 10, 2017"
+output:
+  word_document: default
+  html_document: default
+---
+
+
+## Welcome to the fourth exciting part of the Language Development in ASD exercise
+
+```{r, include= FALSE}
+#"/Users/thearolskovsloth/Studygroup/Assignment1&2_LanguageASD/part3"
+
+train <- read.csv("train.csv")
+train<-train[complete.cases(train[ , 14]),]
+
+library(tidyverse)
+library(ggplot2)
+library(lme4)
+library(dplyr)
+library(MuMIn)
+library(effects)
+library(Metrics)
+library(caret)
+library(simr)
+library(lmerTest)
+
+```
+
+### Exercise 1
+
+#How much power does your study have (if your model estimates are quite right)?
+
+#- [GitHub]Load your dataset, fit your favorite model, assess power for your main effects and interactions of interest.
+
+#- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+```{r, include=FALSE}
+
+train$Diagnosis <- ifelse(train$Diagnosis == "ASD", 0, 1)
+train$Diagnosis <- as.numeric(train$Diagnosis)
+
+pow_model = lmer(CHI_MLU ~ VISIT * Diagnosis + (1 + VISIT | SUBJ), train , REML = F)
+summary(pow_model)
+
+
+#running powersimulations for the effects
+
+powerDiag = powerSim(pow_model, simr::fixed("Diagnosis", method = "t" ), nsim= 1000)
+powerDiag
+
+powerVisit = powerSim(pow_model, simr::fixed("VISIT", method = "t"), nsim= 1000)
+powerVisit
+
+powerInter = powerSim(pow_model, simr::fixed("VISIT:Diagnosis", method = "t"), nsim= 1000)
+powerInter
+
+#lastResult()$errors
+
+
+```
+
+We tested the following model on the training dataset:
+
+##pow_model = lmer(CHI_MLU ~ VISIT * Diagnosis + (1 + VISIT | SUBJ))
+
+
+Assessment of power:
+
+By using the powerSim function with the t-test method we calculated the power for each of our fixed effects seperately and as an interaction effect:
+
+The power for predictor 'Diagnosis' is 24.50% with confindence intervals from 21.86: 27.29. Effect size for Diagnosis is -0.21. This is a very low power. However, the effect of most interest is the interaction effect, and therefore the low power for Diagnosis alone is not a major issue, as it contributes to the analysis of interest. 
+
+The power for predictor 'VISIT' is 96.60% with confidence intervals from 95.28: 97.63. Effect size for VISIT is 0.10. This is a very high power. 
+
+Power for the interaction 'VISIT:Diagnosis' is 100.0%, with confidence intervals from 99.63: 100. Effect size is 0.25. This is obviously the highest power possible. With this level of power we are assured that if there is a true effect, the model would find the effect 100 % of the time. 
+
+
+### Exercise 2
+#How would you perform a more conservative power analysis?
+
+#- Identify and justify a minimum effect size for each of your relevant effects
+
+A more conservative power analysis would accept smaller effects of the predictors, and therefore we adjust the effect sizes to slightly smaller values than the effect sizes from the model. We need more participants to find a smaller effect, thus we expect the power to reach a level of 80% at a higher number of participants, than in the previous analysis.
+
+Normally you would make a power curve before doing the actual experiment and the statistical analysis. This is done in order to design your experiment with a sufficient number of participants to ensure a high enough power. When making a power curve you specify the smallest effect size you will accept. This is the smallest difference between levels that you find meaningful. One way to rationalize for a specific minimum effect is to look in the litterature. Another way is to run a pilot study. This can pose a problem as you are likely to find effects which do not generalize to the population, as in a pilot study you would often have a few number of participants to train the model on. 
+
+For Dianosis the effect size is now set to: -0.15
+For visit the effect size is now set to: 0.08
+For the interaction effect the effect size is now set to: 0.2
+
+
+#- [GitHub] take the model from exercise 1 and replace the effects with the minimum effect size that you'd accept.
+
+```{r, include=FALSE}
+
+fixef(pow_model)["VISIT"] <- 0.08
+fixef(pow_model)["Diagnosis"] <- -0.15
+fixef(pow_model)["VISIT:Diagnosis"] <- 0.2
+
+
+summary(pow_model)
+
+```
+
+#- [GitHub] assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
+
+```{r, echo=TRUE}
+
+powerCurveDiag = powerCurve(pow_model, simr::fixed("Diagnosis", method = "t"),along="SUBJ", nsim=1000)
+plot(powerCurveDiag)
+powerCurveDiag
+
+powerCurveVisit = powerCurve(pow_model, simr::fixed("VISIT", method = "t"), along="SUBJ", nsim=1000)
+plot(powerCurveVisit)
+powerCurveVisit
+#done: 62 participants
+
+powerCurveInter = powerCurve(pow_model, simr::fixed("VISIT:Diagnosis", method = "t"),along="SUBJ", nsim=1000)
+plot(powerCurveInter)
+powerCurveInter
+#done: 24 participants
+
+
+```
+
+#- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+For the predictor "diagnosis" the curve does not approach the 80% power limit... If we look at the estimate for diagnosis it is -0.21. This number can sound a little weird as it would indicate that when we go from ASD to TD, the value of MLU is 0.21 lower for TD compared to ASD. THis does not make intuitive sense as we would expect the MLU value to be higher for TD compared to ASD. The reason for this is, that we have an interaction effect in the model and it's therefore not really possible to assess the estimates in a meaningful way. It is from these estimates that we rationalized for minimum effects to make a more conservative poweranalysis. It therefore makes sense that the power for this predictor alone is very bad.
+
+To find an effect size of 0.08 of the predictor "visit" we need around 62 participants to have a power of 80%. Examining the powercurve we can tell that something is wrong as the power with 4 participants is 73% and thereafter drops to to 23% with 10 participants and then rises as would be expected.
+
+To find an effect size of 0.2 of the interaction effect of visit and diagnosis we need around 24 participants to have a power of 80 %. 
+
+### Exercise 3
+
+#Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why.
+
+
+```{r, echo=TRUE}
+
+thirtykids <-powerCurve(pow_model, simr::fixed('VISIT:Diagnosis', method='t'),along = 'SUBJ', nsim = 100, breaks= c(15:30))
+plot(thirtykids)
+thirtykids
+
+
+```
+
+The only relevant effect that we are interested in is the interaction effect of visit and diagnosis. 
+
+From looking at the plot and the table we can see that with 30 participants, the power is 95%. It would be worth runnning this study since this level of power is obtained with an even smaller effect size that previously. This means that the power is still high at a rather conservative effect size.
