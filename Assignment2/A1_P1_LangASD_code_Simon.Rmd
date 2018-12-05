@@ -42,7 +42,7 @@ If you created an rstudio project, then your working directory (the directory wi
 
 ```{r}
 #Setting WD
-setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment1&2_LanguageASD")
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment2")
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
@@ -56,11 +56,8 @@ demo<-read.csv("demo_train.csv",stringsAsFactors = F)
 lu<-read.csv("LU_train.csv",stringsAsFactors = F)
 token<-read.csv("token_train.csv",stringsAsFactors = F)
 #Loading packages
-library(dplyr)
-library(plyr)
-library(stringr)
-library(tidyverse)
-library(magrittr)
+library(pacman)
+p_load(dplyr,plyr,stringr,tidyverse,magrittr)
 ```
 
 Explore the 3 datasets (e.g. visualize them, summarize them, etc.). You will see that the data is messy, since the psychologists collected the demographic data, a linguist analyzed the length of utterance in May 2014 and the same linguist analyzed the words several months later. In particular:
@@ -198,7 +195,7 @@ ADSFinal$SUBJ<-as.integer(ADSFinal$SUBJ)
 ADSFinal$Gender<-as.factor(ADSFinal$Gender)
 ADSFinal$Diagnosis<-as.factor(ADSFinal$Diagnosis)
 # Giving variables the right names 
-levels(ADSFinal$Gender) <- c("M", "F")
+levels(ADSFinal$Gender) <- c("F", "M")
 levels(ADSFinal$Diagnosis) <- c("ASD", "TD")
 ```
 
@@ -229,7 +226,7 @@ group_by(ADSFinal,SUBJ) %>%
   dplyr::summarize(Mean = mean(CHI_MLU, na.rm=TRUE))%T>% 
   assign("mean1",.,envir = .GlobalEnv)
 # Getting only the subjects with a mean over 2.7
-filter(mean1, Mean == 2.7)
+filter(mean1, Mean > 2.7)
 
 #2
 # Getting only the subjects with a MLU of less then 1.5 at first visit
