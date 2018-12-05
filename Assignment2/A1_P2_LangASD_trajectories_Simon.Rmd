@@ -1,7 +1,7 @@
 ---
 title: "Assignment 1 - Language Development in ASD - part 2"
 author: "Simon M. N."
-date: "25/9 2018"
+date: "05/12 2018"
 output: html_document
 ---
     
@@ -34,12 +34,8 @@ Load necessary libraries : what will you need?
 
 ```{r Load Libraries, include = FALSE}
 #Loading packages
-library(ggplot2)
-library(lme4)
-library(tidyverse)
-library(dplyr)
-library(MuMIn)
-library(effects)
+library(pacman)
+p_load(ggplot2,lme4,tidyverse,dplyr,MuMIn,effects)
 ```
 
 ### Define your working directory and load the data
@@ -54,11 +50,12 @@ If you opened this Rmd file outside of a project, you will need some code to fin
 If your're in a project, just put the data in the project folder and you're good to go! (Or make a data subfolder to keep it tidy around here)
 ```{r Load Data, include = FALSE}
 # Setting WD and loading the data
-setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment1&2_LanguageASD")
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment2")
 data<-read.csv("ADSFinal_Simon.csv",stringsAsFactors = F)
 
-# Changing diagnosis to a factor to avoid issues later
+# Changing diagnosis and visit to a factor to avoid issues later
 data$Diagnosis <-as.factor(data$Diagnosis)
+data$VISIT <-as.factor(data$VISIT)
 ```
 
 ### Characterize the participants (Exercise 1)
@@ -103,7 +100,7 @@ sd(visit1TD$verbalIQ)
 [REPORT THE RESULTS]
 I first removed the NAs form the list to get a more accurate assessment of the two groups, since some of the children in the dataset only have NAs and therefor have no impact on the analyses. I look only at the children at visit 1 since we are interested in diffrences at the beginning of the experiment and we expect diffrences to occur later in the experiment
 First looking at the size of the two groups. Number of children with ASD was 29 and number of children with TD is 31. That is simmilar size groups and we should not run into any issues.
-Looking at gender within the ASD group there was 25 males and 4 females and in the TD group there was 25 males and 6 females. Again very similar and it should not cause any issues. One thing to note is that this is not an accurate representation for the real world population, so gernalasation to the real world will be weaker, considering males and females may learn language in diffrenret ways and be effect by ASD in diffrent ways.
+Looking at gender within the ASD group there was 25 females and 4 males and in the TD group there was 25 females and 6 males. Again very similar and it should not cause any issues. One thing to note is that this is not an accurate representation for the real world population, so gernalasation to the real world will be weaker, considering males and females may learn language in diffrenret ways and be effect by ASD in diffrent ways.
 A Welch two-sample t-test is run on the average age of the two groups. It was found that there was a significant diffrence between the average age of ASD (M=33, SD=5.59) and the average age of TD (M=20.38, SD=1.51), t(31.82)=11.76 p < 0.001. This may cause some issues since children may learn language at different rates depending on there age. This diffrence is likely due to the difficulty of diagnosing ASD in young children.
 Ethnicity was also counted. However, the majority of the children where white. Though the ADS group was more diverse with 7 non-whites where the TD group only had 1 non-white. It is however not really possible to say if this will have an impact, since ethnicity is likly not a good predictor of linguistic development (Unless you want to be really controversial). Ethnicity can correlate with socioeconomic status which can have an impact on linguistic development. It is, however, impossible to say much form ethnicity.
 
@@ -130,12 +127,17 @@ boxplot(CHI_MLU ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
 #Makeing a lineplot of the data to assess the data
 line_plot <- ggplot(data, aes(VISIT,CHI_MLU, color = Diagnosis)) 
 line_plot + 
+  geom_violin () +
+  geom_jitter(height = 0, width = 0.1) +
   stat_summary(fun.y = mean, geom = "point") +
   stat_summary(fun.y = mean, geom = "line",aes(group = Diagnosis)) + 
-  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.2, aes(group = Diagnosis)) + 
-  scale_color_manual(values=c("goldenrod1","dodgerblue"))
+  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.5, aes(group = Diagnosis), position = position_dodge2()) + 
+  scale_color_manual(values=c("goldenrod1","dodgerblue")) +
+  ggtitle("Lineplot of Raw Data")+
+  xlab("Visit") + ylab("Child MLU")
 
 #Making a simple linear mixed effects model. Model 1
+data$VISIT <-as.integer(data$VISIT)
 languageModel = lmer(CHI_MLU ~ Diagnosis * VISIT + (1+VISIT|SUBJ), data=data,REML=FALSE)
 summary(languageModel)
 ```
@@ -183,12 +185,12 @@ model_quadrouble <- lmer(CHI_MLU ~ VISIT * Diagnosis + I(VISIT^2) + I(VISIT^3) +
 summary(model_quadrouble)
 r.squaredGLMM(model_quadrouble)
 
-# Plot of the child MLU model (shamelessly stolen with comments and all :P)
+# Plot of the child MLU model (shamelessly stolen with comments and all :P) (not so much anymore)
 ee <- effect(c("Diagnosis","VISIT"),languageModel2) 
 theme_set(theme_bw())
-ggplot(as.data.frame(ee),
-       aes(VISIT,fit,colour=Diagnosis,fill=Diagnosis))+
+ggplot(as.data.frame(ee), aes(VISIT,fit,colour=Diagnosis,fill=Diagnosis))+
     geom_line()+
+    geom_point(data=data, aes(x=VISIT, y=CHI_MLU), position = position_dodge2(width=0.5)) +
      ## colour=NA suppresses edges of the ribbon
     geom_ribbon(colour=NA,alpha=0.1,
                             aes(ymin=lower,ymax=upper))+
@@ -235,12 +237,19 @@ What also be seen form the plot of the model, is that MLU is starting to decreas
 boxplot(MOT_MLU ~ Diagnosis*VISIT, col=c("white","lightgray"),data)
 
 #Makeing a lineplot of the data to assess the data
+data$VISIT <-as.factor(data$VISIT)
 line_plot <- ggplot(data, aes(VISIT,MOT_MLU, color = Diagnosis)) 
 line_plot + 
+  geom_violin () +
+  geom_jitter(height = 0, width = 0.1) +
   stat_summary(fun.y = mean, geom = "point") +
   stat_summary(fun.y = mean, geom = "line",aes(group = Diagnosis)) + 
   stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.2, aes(group = Diagnosis)) + 
-  scale_color_manual(values=c("goldenrod1","dodgerblue"))
+  scale_color_manual(values=c("goldenrod1","dodgerblue"))+
+  ggtitle("Lineplot of Raw Data")+
+  xlab("Visit") + ylab("Mother MLU")
+
+data$VISIT <-as.integer(data$VISIT)
 
 #Making a quadratic mixed effects model. Model 5
 languageModelMot = lmer(MOT_MLU ~ Diagnosis * VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
@@ -250,12 +259,13 @@ r.squaredGLMM(languageModelMot)
 languageNullMot = lmer(MOT_MLU ~ VISIT + I(VISIT^2) + (1+VISIT+ I(VISIT^2)|SUBJ), data=data, REML=FALSE)
 anova(languageNullMot,languageModelMot)
 
-# Plot of the parent MLU model (shamelessly stolen with comments and all :P)
+# Plot of the parent MLU model (shamelessly stolen with comments and all :P) (not so much anymore)
 ee <- effect(c("Diagnosis","VISIT"),languageModelMot) 
 theme_set(theme_bw())
 ggplot(as.data.frame(ee),
        aes(VISIT,fit,colour=Diagnosis,fill=Diagnosis))+
     geom_line()+
+    geom_point(data=data, aes(x=VISIT, y=MOT_MLU), position = position_dodge2(width=0.5)) +
      ## colour=NA suppresses edges of the ribbon
     geom_ribbon(colour=NA,alpha=0.1,
                             aes(ymin=lower,ymax=upper))+
