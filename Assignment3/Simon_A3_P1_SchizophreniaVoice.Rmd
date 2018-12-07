@@ -1,21 +1,17 @@
 ---
 title: "Assignment2_Part1_VoiceInSchizophrenia"
 author: "Simon Møller Nielsen"
-date: "24/10 2018"
+date: "07/12/2018"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # Loading packages
-library(stringr)
-library(tidyverse)
-library(plyr)
-library(lmerTest)
-library(caret)
-library(Metrics)
-library(dplyr)
-setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment 2, part 1/cogsci-methods-3-assignments-master/Assignment3_VoiceSchizo/")
+library(pacman)
+p_load(stringr,tidyverse,plyr,lmerTest,caret,Metrics,dplyr)
+
+setwd("C:/Users/slmoni/Documents/Uni/Experimental Methods III/R-stuff/Assignment3")
 ```
 
 ## Assignment 2 - Part 1 - Assessing voice in schizophrenia
