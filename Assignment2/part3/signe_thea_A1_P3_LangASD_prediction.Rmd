@@ -17,9 +17,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(ggplot2)
 library(lme4)
-library(Metrics)
-library(caret)
-
+#library(Metrics)
+#library(caret)
+library(pacman)
+p_load(Metrics)
+p_load(caret)
 
 #load data 
 train_data <- read.csv("train.csv")
