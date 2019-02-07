@@ -52,14 +52,14 @@ apply(training, 2, function(x) any(is.na(x)))
 ```{r}
 
 #Creating my favourite model.
-model = lmer(CHI_MLU ~ ADOS * Age + (1+Age|SUBJ), data = training)
+model = lmer(CHI_MLU ~ VISIT * Diagnosis +  (1+VISIT|SUBJ), data = training, REML = FALSE)
 summary(model)
 
 
 
-powerSim(model,simr::fixed('ADOS:Age',method='t'),nsim=1000) #Testing the power for interaction effect
-powerSim(model,simr::fixed('Age',method='t'),nsim=1000) #Testing the power for one of my main effects
-powerSim(model,simr::fixed('ADOS',method='t'),nsim=1000) #Testing the power for my other main effect.
+powerSim(model,simr::fixed('VISIT:DiagnosisTD',method='t'),nsim=1000) #Testing the power for interaction effect
+powerSim(model,simr::fixed('VISIT',method='t'),nsim=1000) #Testing the power for one of my main effects
+powerSim(model,simr::fixed('DiagnosisTD',method='t'),nsim=1000) #Testing the power for my other main effect.
 
 
 
@@ -68,13 +68,13 @@ powerSim(model,simr::fixed('ADOS',method='t'),nsim=1000) #Testing the power for 
 ```
 #1 How much power does my study have?
 
-Testing the power for my linear mixed effect model: CHI_MLU ~ ADOS * Age + (1+Age|SUBJ)
+Testing the power for my linear mixed effect model: CHI_MLU ~ VISIT * Diagnosis + (1 + VISIT | SUBJ)
 
-Using 1000 simulations, the observed power for the estimate of the main effect 'Age' (0.090) is calculated to 100% with confidence intervals ranging from 99.63-100.
-The observed power for for the estimate of the main effect 'ADOS'  (0.078) is calculated to 98% with a confidence interval of 96.93-98.77. 
-The observed power for the estimate of the interaction effect 'ADOS*Age' (-0.0048) in my model is calculated to 100%, with confidence intervals ranging from 99.63-100.0. The power analysis indicates that the estimates are highly reliable and that our study is overpowered. 
+Using 1000 simulations, the observed power for the estimate of the main effect 'VISIT' (0.10296) is calculated to 97% with confidence intervals ranging from 96.10-98.21.
+The observed power for for the estimate of the main effect 'DiagnosisTD'  (-0.18994) (note that this effect is not significant at p > 0.05 and a std. error of 0.17322) is calculated to 18% with a confidence interval of 15.85 - 20.73. 
+The observed power for the estimate of the interaction effect 'VISIT:DiagnosisTD' (0.24711) in my model is calculated to 100%, with confidence intervals ranging from 99.63-100.0. The power analysis indicates that the estimates are highly reliable and that our study is overpowered. 
 
-The interaction effect can be interpreted as each time ADOS score is increased by 1, the slope for CHI_MLU decrease by -0.0048 per month. After 24 months, this results in a difference of (24*-0.0048) -0.1152 CHI_MLU. 
+The interaction effect can be interpreted as Visit increases by  1, the slope for CHI_MLU increases with 0.24711 for children diagnosed TD. After 5 visits (VISIT 1 being an intercept) this results in a difference of (5*0.24711) 1.23555 CHI_MLU across diagnosis.. 
 ```{r}
 #Identify a minimum effect size
 
@@ -82,7 +82,7 @@ The interaction effect can be interpreted as each time ADOS score is increased b
 norm_training = training
 
 #Standardizing my ADOS and Age values for my new dataset.
-ADOS_S = (training$ADOS - mean(training$ADOS)) / sd(training$ADOS)
+VISIT = (training$VISIT - mean(training$VISIT)) / sd(training$VISIT)
 Age_S = (training$Age - mean(training$Age)) / sd(training$Age)
 CHI_MLU_S = (training$CHI_MLU - mean(training$CHI_MLU)) / sd(training$CHI_MLU)
 
